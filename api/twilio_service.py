@@ -2,6 +2,9 @@
 from twilio.rest import Client
 import os
 from typing import List
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def send_emergency_notification(
     to_numbers: List[str],
@@ -26,3 +29,6 @@ def send_emergency_notification(
             print(f"Sent SMS to {number}")
     except Exception as e:
         print(f"Error sending notification: {str(e)}")
+
+
+# send_emergency_notification(["+917880764235"],"Alert For HarmFull Content, He Needs Some Help")

@@ -390,7 +390,7 @@ const Landing = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
           <div className="bg-indigo-50 p-6 rounded-xl shadow-md transition-all duration-300 hover:shadow-lg">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-indigo-900">Your Journal Insights</h2>
+              <h2 className="text-xl font-semibold text-indigo-900">Mood Dashboard</h2>
               <Link 
                 to="/journal" 
                 className="text-indigo-600 hover:text-indigo-800 text-sm font-medium flex items-center"

@@ -107,7 +107,7 @@ def check_is_mental_health_related(query: str) -> str:
         "self-esteem", "confidence", "healing", "sleep", "insomnia", "relationship",
         "addiction", "recovery", "tired", "exhausted", "hopeless", "distress", 
         "anger", "angry", "fear", "scared", "anxious", "nervous", "worry", "upset",
-        "irritable", "irritated", "frustrated", "motivation", "focus", "concentrate"
+        "irritable", "irritated", "frustrated", "motivation", "focus", "concentrate","migraine"
     ]
     
     # Check if any mental health related words are in the query

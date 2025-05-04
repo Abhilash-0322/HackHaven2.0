@@ -16,14 +16,18 @@ def get_user_location(ip_address: str = "auto") -> Optional[dict]:
             ip_address = response.json().get("ip")
         
         g = geocoder.ip(ip_address)
-        if g.ok:
-            return {
-                "country_code": g.country,
-                "city": g.city,
-                "lat": g.lat,
-                "lng": g.lng
-            }
-        return None
+        print(g)
+        return g
+        # if g.ok:
+        #     return {
+        #         "country_code": g.country,
+        #         "city": g.city,
+        #         "lat": g.lat,
+        #         "lng": g.lng
+        #     }
+        # return None
     except Exception as e:
         print(f"Error getting location: {str(e)}")
         return None
+    
+# get_user_location()
