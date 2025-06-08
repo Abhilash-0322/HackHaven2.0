@@ -391,7 +391,7 @@ const MentalHealthChat = () => {
   
   // Sample suggested questions
   const suggestedQuestions = [
-    "I've been feeling anxious lately",
+    // "I've been feeling anxious lately",
     "How can I improve my sleep?",
     "I'm having trouble focusing",
     "What are some mindfulness exercises?",

@@ -91,6 +91,8 @@ from therapist import router as therapist_router, seed_therapists
 from books import router as books_router  # Added this import for book recommendations
 # Import the coins router
 from coins import router as coins_router
+# from fastapi.responses import FileResponse
+# from fastapi.staticfiles import StaticFiles
 
 # Create main application
 app = FastAPI(
@@ -118,6 +120,18 @@ async def error_handling_middleware(request: Request, call_next):
             status_code=500, 
             content={"detail": f"Internal server error: {str(e)}"}
         )
+
+# app.mount("/assets", StaticFiles(directory="../dist/assets"), name="assets")
+
+# @app.get("/{full_path:path}")
+# async def serve_spa(full_path: str):
+#     try:
+#         return FileResponse(os.path.abspath("../dist/index.html"))
+#     except Exception as e:
+#         return JSONResponse(
+#             status_code=500,
+#             content={"detail": f"Failed to load frontend: {str(e)}"}
+#         )
 
 # Include routers
 app.include_router(coins_router)  # Include the Calm Coins routes

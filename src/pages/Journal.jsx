@@ -1329,25 +1329,62 @@ const Journal = () => {
   };
 
   // Add mood analysis to existing entry
-  const handleAddMoodAnalysis = async (id) => {
-    try {
-      await axios.put(`${API_URL}/journal/entries/${id}/analyze-mood`);
-      fetchJournalData();
-    } catch (err) {
-      setError('Failed to analyze mood for this entry. Please try again.');
-    }
-  };
+  // const handleAddMoodAnalysis = async (id) => {
+  //   try {
+  //     await axios.put(`${API_URL}/journal/entries/${id}/analyze-mood`);
+  //     fetchJournalData();
+  //   } catch (err) {
+  //     setError('Failed to analyze mood for this entry. Please try again.');
+  //   }
+  // };
+
+  // // Delete a journal entry
+  // const handleDelete = async (id) => {
+  //   if (window.confirm('Are you sure you want to delete this journal entry?')) {
+  //     setIsDeleting(id); // Set loading state for this entry
+  //     try {
+  //       // Ensure id is treated as a string
+  //       await axios.delete(`${API_URL}/journal/entries/${String(id)}`);
+  //       fetchJournalData();
+  //     } catch (err) {
+  //       setError('Failed to delete journal entry. Please try again.');
+  //     } finally {
+  //       setIsDeleting(null);
+  //     }
+  //   }
+  // };
+
+  // // Edit a journal entry
+  // const handleEdit = (entry) => {
+  //   setFormData({
+  //     title: entry.title,
+  //     content: entry.content,
+  //     mood: entry.mood || '',
+  //     tags: entry.tags ? entry.tags.join(', ') : ''
+  //   });
+  //   setEditingId(entry._id); // MongoDB _id is already a string in the frontend
+  //   setShowForm(true);
+  //   setMoodAnalysis(entry.mood_analysis || null);
+  //   window.scrollTo(0, 0);
+  // };
 
   // Delete a journal entry
   const handleDelete = async (id) => {
+    // Validate id
+    if (!id || typeof id !== 'string' || id === '[object Object]') {
+      console.error('Invalid ID passed to handleDelete:', id);
+      setError('Invalid journal entry ID. Please try again.');
+      return;
+    }
+  
     if (window.confirm('Are you sure you want to delete this journal entry?')) {
-      setIsDeleting(id); // Set loading state for this entry
+      setIsDeleting(id);
       try {
-        // Ensure id is treated as a string
-        await axios.delete(`${API_URL}/journal/entries/${String(id)}`);
+        await axios.delete(`${API_URL}/journal/entries/${encodeURIComponent(id)}`);
         fetchJournalData();
       } catch (err) {
-        setError('Failed to delete journal entry. Please try again.');
+        console.error('Delete error:', err.response?.data || err.message);
+        setError('Failed to delete journal entry: ' + (err.response?.data?.detail || err.message));
       } finally {
         setIsDeleting(null);
       }
@@ -1362,10 +1399,20 @@ const Journal = () => {
       mood: entry.mood || '',
       tags: entry.tags ? entry.tags.join(', ') : ''
     });
-    setEditingId(entry._id); // MongoDB _id is already a string in the frontend
+    setEditingId(String(entry._id)); // Ensure _id is stored as a string
     setShowForm(true);
     setMoodAnalysis(entry.mood_analysis || null);
     window.scrollTo(0, 0);
+  };
+
+  // Add mood analysis to existing entry
+  const handleAddMoodAnalysis = async (id) => {
+    try {
+      await axios.put(`${API_URL}/journal/entries/${String(id)}/analyze-mood`);
+      fetchJournalData();
+    } catch (err) {
+      setError('Failed to analyze mood for this entry. Please try again.');
+    }
   };
 
   // Apply a journal prompt
@@ -1792,7 +1839,7 @@ const Journal = () => {
                         >
                           <Edit className="h-5 w-5" />
                         </button>
-                        <button 
+                        {/* <button 
                           onClick={() => handleDelete(entry._id)}
                           disabled={isDeleting === entry._id}
                           className={`text-red-600 hover:text-red-800 ${
@@ -1805,7 +1852,21 @@ const Journal = () => {
                           ) : (
                             <Trash2 className="h-5 w-5" />
                           )}
-                        </button>
+                        </button> */}
+                        <button 
+                            onClick={() => handleDelete(String(entry._id))} // Explicitly convert to string
+                            disabled={isDeleting === entry._id}
+                            className={`text-red-600 hover:text-red-800 ${
+                              isDeleting === entry._id ? 'opacity-50 cursor-not-allowed' : ''
+                            }`}
+                            title="Delete"
+                          >
+                            {isDeleting === entry._id ? (
+                              <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-red-600"></div>
+                            ) : (
+                              <Trash2 className="h-5 w-5" />
+                            )}
+                          </button>
                       </div>
                     </div>
                     

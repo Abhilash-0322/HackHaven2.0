@@ -103,7 +103,7 @@ def generate_journal_title(content: str) -> str:
         """
     )
     
-    chain = LLMChain(llm=llm, prompt=prompt_template)
+    chain = LLMChain(llm=llm, prompt=prompt_template,verbose=True)
     
     try:
         # Limit content to avoid excessive input
@@ -148,10 +148,10 @@ def analyze_mood(content: str):
     )
     
     # Create the chain
-    chain = LLMChain(llm=llm, prompt=prompt_template)
+    chain = LLMChain(llm=llm, prompt=prompt_template,verbose=True)
     
     # Run the chain
-    result = chain.run(content=content)
+    result = chain.run(content=content,verbose=True)
     
     # Process the result
     response_lines = result.strip().split('\n')
@@ -317,6 +317,7 @@ async def update_user_settings(settings: UserSettings):
     )
     return {"message": "Settings updated successfully"}
 
+
 @router.put("/entries/{id}/analyze-mood", response_description="Add mood analysis to existing entry")
 async def add_mood_analysis(id: str):
     """Add or update mood analysis for an existing journal entry"""
@@ -350,12 +351,14 @@ async def add_mood_analysis(id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error analyzing mood: {str(e)}")
 
+
 # Include the other existing endpoints
 @router.get("/entries", response_description="List all journal entries")
 async def list_journal_entries():
     """Retrieve all journal entries from the database"""
     journals = journal_collection.find().sort("created_at", -1)
     return parse_json(journals)
+
 
 @router.get("/entries/{id}", response_description="Get a single journal entry")
 async def get_journal_entry(id: str):
@@ -408,6 +411,7 @@ async def update_journal_entry(id: str, journal: JournalEntry = Body(...)):
         return parse_json(journal_collection.find_one({"_id": ObjectId(id)}))
     except Exception:
         raise HTTPException(status_code=400, detail=f"Invalid ID format or update data")
+
 
 @router.get("/prompts", response_description="Get journal prompts")
 async def get_journal_prompts():

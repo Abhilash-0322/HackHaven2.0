@@ -188,7 +188,7 @@ def get_agent(memory):
     )
     
     agent = initialize_agent(
-        tools=tools, 
+        tools=tools,
         llm=llm,
         agent=AgentType.CONVERSATIONAL_REACT_DESCRIPTION,
         verbose=True,
