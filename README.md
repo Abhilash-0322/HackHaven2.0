@@ -25,6 +25,9 @@ Welcome to **ZenHeaven**, an AI-powered digital platform designed to provide per
 
 ---
 
+## Flowchart
+-![alt text](chatbot_flow.svg)
+
 ## 🛠 Tech Stack
 
 **Frontend:**
