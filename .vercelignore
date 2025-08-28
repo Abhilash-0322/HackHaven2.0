@@ -1,0 +1,30 @@
+# Ignore Python backend files
+api/
+*.py
+*.pyc
+__pycache__/
+*.pkl
+*.db
+*.csv
+*.ipynb
+requirements.txt
+
+# Ignore environment files with sensitive data
+.env
+.env.local
+.env.production
+
+# Ignore other backend-related files
+*.sqlite
+*.sqlite3
+
+# Keep only frontend files for deployment
+!src/
+!public/
+!index.html
+!package.json
+!package-lock.json
+!vite.config.js
+!tailwind.config.js
+!postcss.config.js
+!eslint.config.js
