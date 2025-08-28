@@ -1,6 +1,84 @@
 # 🧘 ZenHeaven – A Holistic Mental Wellness Platform
 
-Welcome to **ZenHeaven**, an AI-powered digital platform designed to provide personalized, accessible, and stigma-free mental health support. CalmVerse brings together therapy, self-care tools, and community features to create a safe, supportive, and empowering environment for anyone struggling with stress, anxiety, or emotional challenges.
+Welcome to **ZenHeaven**, an AI-powered digital platform designed to provide personalized, accessible, and stigma-free mental health support. ZenHeaven brings together therapy, self-care tools, and community features to create a safe, supportive, and empowering environment for anyone struggling with stress, anxiety, or emotional challenges.
+
+---
+
+## 🚀 **DEPLOYMENT GUIDE - Deploy to Vercel**
+
+### **Prerequisites**
+- Node.js 18+ 
+- A deployed FastAPI backend (Railway, Render, etc.)
+- Vercel account
+
+### **Step 1: Prepare for Deployment**
+Your project is now configured with:
+- ✅ Environment variable support (`VITE_API_URL`)
+- ✅ Vercel configuration (`vercel.json`)
+- ✅ Optimized Vite build settings
+- ✅ All hardcoded localhost URLs updated
+
+### **Step 2: Deploy Your Backend First**
+Choose one of these platforms for your FastAPI backend:
+
+**Option A: Railway**
+1. Push your `/api` folder to GitHub
+2. Connect to Railway
+3. Deploy automatically
+4. Get your backend URL
+
+**Option B: Render**
+1. Connect your GitHub repo
+2. Set Python environment
+3. Deploy with `uvicorn main:app --host 0.0.0.0 --port $PORT`
+
+**Option C: Heroku**
+1. Create `Procfile`: `web: uvicorn main:app --host 0.0.0.0 --port $PORT`
+2. Deploy via Git
+
+### **Step 3: Deploy Frontend to Vercel**
+
+**Method 1: Vercel CLI**
+```bash
+# Install Vercel CLI
+npm i -g vercel
+
+# Deploy from project root
+vercel --prod
+
+# Set environment variable when prompted:
+# VITE_API_URL=https://your-backend-url.com
+```
+
+**Method 2: GitHub Integration**
+1. Push code to GitHub repository
+2. Go to [vercel.com](https://vercel.com)
+3. "Import Project" → Connect GitHub
+4. Select your repository
+5. **Set Environment Variables:**
+   - Key: `VITE_API_URL`
+   - Value: `https://your-backend-url.com`
+6. Click "Deploy"
+
+### **Step 4: Environment Variables**
+
+**Frontend (Vercel Dashboard):**
+```
+VITE_API_URL=https://your-backend-url.com
+```
+
+**Backend Environment Variables:**
+```
+DATABASE_URL=your-mongodb-connection-string
+JWT_SECRET=your-jwt-secret
+OPENAI_API_KEY=your-openai-key
+```
+
+### **Step 5: Test Your Deployment**
+1. Visit your Vercel URL
+2. Test login/register functionality
+3. Check API connections
+4. Verify all features work
 
 ---
 

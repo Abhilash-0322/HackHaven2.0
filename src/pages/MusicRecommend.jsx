@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Search, Disc, Play, Music, Radio, Loader } from 'lucide-react';
 
 // API endpoints (change the base URL to match your FastAPI server)
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const MusicRecommend = () => {
   const [searchTerm, setSearchTerm] = useState('');

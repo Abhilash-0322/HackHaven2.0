@@ -85,12 +85,15 @@ import os
 # Import your existing app modules
 from app import app as music_app
 from chatbot import router as chatbot_router
+from chatbot_threads import router as chatbot_threads_router
 from journal import router as journal_router
 from therapist import router as therapist_router, seed_therapists
 # Import the book recommender module
 from books import router as books_router  # Added this import for book recommendations
 # Import the coins router
 from coins import router as coins_router
+# Import the auth router
+from auth import router as auth_router
 # from fastapi.responses import FileResponse
 # from fastapi.staticfiles import StaticFiles
 
@@ -134,9 +137,11 @@ async def error_handling_middleware(request: Request, call_next):
 #         )
 
 # Include routers
+app.include_router(auth_router)  # Include the authentication routes
 app.include_router(coins_router)  # Include the Calm Coins routes
 app.include_router(music_app.router)  # Include your existing music app routes
-app.include_router(chatbot_router)  # Include the mental health chatbot routes
+# app.include_router(chatbot_router)  # Include the mental health chatbot routes - DISABLED in favor of threaded version
+app.include_router(chatbot_threads_router)  # Include the threaded chatbot routes
 app.include_router(journal_router)  # Include the journal routes
 app.include_router(therapist_router)  # Include the therapist appointment routes
 app.include_router(books_router)  # Include the book recommender routes  - Added this line

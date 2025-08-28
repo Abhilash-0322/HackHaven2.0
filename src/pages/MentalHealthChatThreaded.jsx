@@ -1,0 +1,1176 @@
+import { useState, useEffect, useRef } from 'react';
+import { 
+  MessageCircle, Send, Plus, Trash2, Edit3, HelpCircle, Book, X, 
+  Mic, MicOff, Volume2, VolumeX, ChevronLeft, ChevronRight, Award, Clock, User, Bot
+} from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import authService from '../services/authService';
+
+const MentalHealthChat = () => {
+  // Auth context
+  const { updateCalmCoins } = useAuth();
+  
+  // State management
+  const [threads, setThreads] = useState([]);
+  const [currentThread, setCurrentThread] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [inputMessage, setInputMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingThreads, setLoadingThreads] = useState(true);
+  const [showSidebar, setShowSidebar] = useState(true);
+  const [editingTitle, setEditingTitle] = useState(null);
+  const [newTitle, setNewTitle] = useState('');
+  
+  // Voice chat state
+  const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [speechRecognition, setSpeechRecognition] = useState(null);
+  
+  // Resources state
+  const [showResources, setShowResources] = useState(false);
+  const [showEmergencyResources, setShowEmergencyResources] = useState(false);
+  const [resourcesList, setResourcesList] = useState([]);
+  const [coinsEarned, setCoinsEarned] = useState(0);
+  
+  // Streaming state
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamingMessage, setStreamingMessage] = useState('');
+  const [thinkingMessage, setThinkingMessage] = useState('');
+  const [thinkingHistory, setThinkingHistory] = useState([]);
+  const [streamingEnabled, setStreamingEnabled] = useState(true);
+  const [showThinkingSidebar, setShowThinkingSidebar] = useState(false);
+  
+  const messagesEndRef = useRef(null);
+  const chatContainerRef = useRef(null);
+  const inputRef = useRef(null);
+  
+  // API base URL
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  
+  // Initialize speech recognition
+  useEffect(() => {
+    if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+      
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        setInputMessage(transcript);
+      };
+      
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+      
+      recognition.onerror = (event) => {
+        console.error('Speech recognition error', event.error);
+        setIsListening(false);
+      };
+      
+      setSpeechRecognition(recognition);
+    }
+  }, []);
+  
+  // Auto-scroll to bottom of messages
+  useEffect(() => {
+    if (chatContainerRef.current && messagesEndRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [messages]);
+  
+  // Load threads on component mount
+  useEffect(() => {
+    loadThreads();
+  }, []);
+  
+  // Load thread messages when current thread changes
+  useEffect(() => {
+    if (currentThread) {
+      loadThreadMessages(currentThread.id);
+    }
+  }, [currentThread]);
+  
+  // Sample suggested questions
+  const suggestedQuestions = [
+    "I've been feeling anxious lately",
+    "How can I improve my sleep?",
+    "I'm having trouble focusing",
+    "What are some mindfulness exercises?",
+    "I feel overwhelmed with work",
+    "How do I deal with stress?",
+    "I'm feeling lonely",
+    "Tips for better mental health"
+  ];
+  
+  // Load user's chat threads
+  const loadThreads = async () => {
+    setLoadingThreads(true);
+    try {
+      const response = await authService.authenticatedFetch(`${API_URL}/mental-health/threads`);
+      const data = await response.json();
+      setThreads(data.threads || []);
+      
+      // Load the most recent thread if available
+      if (data.threads && data.threads.length > 0) {
+        setCurrentThread(data.threads[0]);
+      }
+    } catch (error) {
+      console.error('Error loading threads:', error);
+    } finally {
+      setLoadingThreads(false);
+    }
+  };
+  
+  // Load messages for a specific thread
+  const loadThreadMessages = async (threadId) => {
+    try {
+      const response = await authService.authenticatedFetch(`${API_URL}/mental-health/threads/${threadId}`);
+      const data = await response.json();
+      
+      // Convert messages to display format
+      const formattedMessages = data.messages.map(msg => ({
+        type: msg.is_user ? 'user' : 'bot',
+        content: msg.content,
+        timestamp: new Date(msg.timestamp),
+        coins_earned: msg.coins_earned || 0
+      }));
+      
+      setMessages(formattedMessages);
+    } catch (error) {
+      console.error('Error loading thread messages:', error);
+      setMessages([]);
+    }
+  };
+  
+  // Create a new thread
+  const createNewThread = () => {
+    setCurrentThread(null);
+    setMessages([{
+      type: 'system',
+      content: 'Welcome to ZenHeaven Mental Health Support. How are you feeling today?',
+      timestamp: new Date(),
+    }]);
+  };
+  
+  // Send message to chatbot with streaming
+  const sendStreamingMessage = async (messageContent = null) => {
+    const content = messageContent || inputMessage.trim();
+    if (!content) return;
+    
+    setIsLoading(true);
+    setIsStreaming(true);
+    setInputMessage('');
+    setThinkingMessage('');
+    // Only clear thinking history when starting a completely new conversation
+    if (!currentThread) {
+      setThinkingHistory([]);
+    }
+    
+    // Add user message to display immediately
+    const userMessage = {
+      type: 'user',
+      content: content,
+      timestamp: new Date()
+    };
+    setMessages(prev => [...prev, userMessage]);
+    
+    try {
+      const response = await authService.authenticatedFetch(`${API_URL}/mental-health/chat/stream`, {
+        method: 'POST',
+        body: JSON.stringify({
+          message: content,
+          thread_id: currentThread?.id || null
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      
+      let currentBotMessage = {
+        type: 'bot',
+        content: '',
+        timestamp: new Date(),
+        coins_earned: 0,
+        streaming: true
+      };
+      
+      // Add bot message placeholder
+      setMessages(prev => [...prev, currentBotMessage]);
+      
+      let buffer = '';
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n\n');
+        buffer = lines.pop() || '';
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              switch (data.type) {
+                case 'thread_id':
+                  if (!currentThread) {
+                    // Reload threads to get the new thread
+                    await loadThreads();
+                  }
+                  break;
+                  
+                case 'thinking':
+                  console.log('Thinking message received:', data.data); // Debug log
+                  setThinkingMessage(data.data);
+                  setThinkingHistory(prev => {
+                    const newHistory = [...prev, { 
+                      text: data.data, 
+                      timestamp: Date.now(),
+                      id: Math.random().toString(36).substr(2, 9)
+                    }];
+                    // Keep last 20 thoughts for detailed analysis
+                    return newHistory.slice(-20);
+                  });
+                  // Auto-show thinking sidebar when AI starts thinking
+                  if (!showThinkingSidebar && streamingEnabled) {
+                    console.log('Auto-opening thinking sidebar'); // Debug log
+                    setShowThinkingSidebar(true);
+                    // Auto-hide resources to prevent overlap
+                    if (showResources) {
+                      setShowResources(false);
+                    }
+                  }
+                  break;
+                  
+                case 'response_start':
+                  setThinkingMessage('');
+                  // Don't clear thinking history - keep it for the sidebar
+                  break;
+                  
+                case 'token':
+                  // Only update the bot message in real-time, don't use streamingMessage
+                  setMessages(prev => {
+                    const newMessages = [...prev];
+                    const lastMessage = newMessages[newMessages.length - 1];
+                    if (lastMessage && lastMessage.type === 'bot') {
+                      lastMessage.content += data.data;
+                    }
+                    return newMessages;
+                  });
+                  break;
+                  
+                case 'complete':
+                  setIsStreaming(false);
+                  setThinkingMessage('');
+                  // Keep thinking history for sidebar display
+                  
+                  // Update final message with metadata
+                  setMessages(prev => {
+                    const newMessages = [...prev];
+                    const lastMessage = newMessages[newMessages.length - 1];
+                    if (lastMessage.type === 'bot') {
+                      lastMessage.coins_earned = data.data.coins_earned;
+                      lastMessage.streaming = false;
+                    }
+                    return newMessages;
+                  });
+                  
+                  // Handle emergency resources
+                  if (data.data.emergency_contact && data.data.resources) {
+                    setResourcesList(data.data.resources);
+                    setShowEmergencyResources(true);
+                  }
+                  
+                  // Show coins earned
+                  if (data.data.coins_earned > 0) {
+                    setCoinsEarned(data.data.coins_earned);
+                    setTimeout(() => setCoinsEarned(0), 3000);
+                    await updateCalmCoins();
+                  }
+                  break;
+                  
+                case 'error':
+                  console.error('Streaming error:', data.data);
+                  setMessages(prev => [...prev, {
+                    type: 'system',
+                    content: 'Sorry, I encountered an error. Please try again.',
+                    timestamp: new Date()
+                  }]);
+                  break;
+              }
+            } catch (e) {
+              console.error('Error parsing SSE data:', e);
+            }
+          }
+        }
+      }
+      
+    } catch (error) {
+      console.error('Error with streaming:', error);
+      setMessages(prev => [...prev, {
+        type: 'system',
+        content: 'Sorry, I encountered an error. Please try again.',
+        timestamp: new Date()
+      }]);
+    } finally {
+      setIsLoading(false);
+      setIsStreaming(false);
+      setThinkingMessage('');
+      // Keep thinking history for sidebar
+    }
+  };
+
+  // Send message to chatbot
+  const sendMessage = async (messageContent = null) => {
+    if (streamingEnabled) {
+      return sendStreamingMessage(messageContent);
+    }
+    
+    // Original non-streaming implementation
+    const content = messageContent || inputMessage.trim();
+    if (!content) return;
+    
+    setIsLoading(true);
+    setInputMessage('');
+    
+    // Add user message to display immediately
+    const userMessage = {
+      type: 'user',
+      content: content,
+      timestamp: new Date()
+    };
+    setMessages(prev => [...prev, userMessage]);
+    
+    try {
+      const requestBody = {
+        message: content,
+        thread_id: currentThread?.id || null
+      };
+      
+      const response = await authService.authenticatedFetch(`${API_URL}/mental-health/chat`, {
+        method: 'POST',
+        body: JSON.stringify(requestBody)
+      });
+      
+      const data = await response.json();
+      
+      // Add bot response to messages
+      const botMessage = {
+        type: 'bot',
+        content: data.response,
+        timestamp: new Date(),
+        coins_earned: data.coins_earned || 0
+      };
+      setMessages(prev => [...prev, botMessage]);
+      
+      // Update current thread or set new thread
+      if (!currentThread && data.thread_id) {
+        // Reload threads to get the new thread
+        await loadThreads();
+        // Find and set the new thread as current
+        const newThread = threads.find(t => t.id === data.thread_id);
+        if (newThread) {
+          setCurrentThread(newThread);
+        }
+      }
+      
+      // Handle emergency resources
+      if (data.emergency_contact && data.resources) {
+        setResourcesList(data.resources);
+        setShowEmergencyResources(true);
+      }
+      
+      // Show coins earned
+      if (data.coins_earned > 0) {
+        setCoinsEarned(data.coins_earned);
+        setTimeout(() => setCoinsEarned(0), 3000);
+        // Update coins in navbar
+        await updateCalmCoins();
+      }
+      
+      // Speak the response if voice is enabled
+      if (voiceEnabled && 'speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(data.response);
+        utterance.rate = 0.8;
+        utterance.pitch = 1;
+        utterance.volume = 0.8;
+        
+        utterance.onstart = () => setIsSpeaking(true);
+        utterance.onend = () => setIsSpeaking(false);
+        
+        speechSynthesis.speak(utterance);
+      }
+      
+    } catch (error) {
+      console.error('Error sending message:', error);
+      setMessages(prev => [...prev, {
+        type: 'system',
+        content: 'Sorry, I encountered an error. Please try again.',
+        timestamp: new Date()
+      }]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Handle voice input
+  const toggleVoiceInput = () => {
+    if (isListening) {
+      speechRecognition?.stop();
+      setIsListening(false);
+    } else {
+      speechRecognition?.start();
+      setIsListening(true);
+    }
+  };
+  
+  // Stop speaking
+  const stopSpeaking = () => {
+    if ('speechSynthesis' in window) {
+      speechSynthesis.cancel();
+      setIsSpeaking(false);
+    }
+  };
+  
+  // Delete thread
+  const deleteThread = async (threadId) => {
+    if (!window.confirm('Are you sure you want to delete this conversation?')) return;
+    
+    try {
+      await authService.authenticatedFetch(`${API_URL}/mental-health/threads/${threadId}`, {
+        method: 'DELETE'
+      });
+      
+      // Remove from local state
+      setThreads(prev => prev.filter(t => t.id !== threadId));
+      
+      // If this was the current thread, clear it
+      if (currentThread?.id === threadId) {
+        setCurrentThread(null);
+        setMessages([{
+          type: 'system',
+          content: 'Welcome to ZenHeaven Mental Health Support. How are you feeling today?',
+          timestamp: new Date(),
+        }]);
+      }
+    } catch (error) {
+      console.error('Error deleting thread:', error);
+    }
+  };
+  
+  // Update thread title
+  const updateThreadTitle = async (threadId, title) => {
+    try {
+      await authService.authenticatedFetch(`${API_URL}/mental-health/threads/${threadId}/title`, {
+        method: 'PUT',
+        body: JSON.stringify({ title })
+      });
+      
+      // Update local state
+      setThreads(prev => prev.map(t => 
+        t.id === threadId ? { ...t, title } : t
+      ));
+      
+      if (currentThread?.id === threadId) {
+        setCurrentThread(prev => ({ ...prev, title }));
+      }
+      
+      setEditingTitle(null);
+      setNewTitle('');
+    } catch (error) {
+      console.error('Error updating thread title:', error);
+    }
+  };
+  
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+  
+  const formatTime = (date) => {
+    return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+  
+  const formatDate = (date) => {
+    const today = new Date();
+    const messageDate = new Date(date);
+    
+    if (messageDate.toDateString() === today.toDateString()) {
+      return 'Today';
+    } else if (messageDate.toDateString() === new Date(today.getTime() - 86400000).toDateString()) {
+      return 'Yesterday';
+    } else {
+      return messageDate.toLocaleDateString();
+    }
+  };
+
+  return (
+    <div className="flex flex-col min-h-screen bg-gradient-to-b from-indigo-50 to-white">
+      {/* Header */}
+      <header className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <MessageCircle className="h-8 w-8 text-indigo-600 mr-3" />
+              <div>
+                <h1 className="text-2xl font-semibold text-indigo-900">Mental Health Support</h1>
+                {currentThread && (
+                  <p className="text-sm text-indigo-600">{currentThread.title}</p>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              {/* Coins earned notification */}
+              {coinsEarned > 0 && (
+                <div className="flex items-center bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full animate-bounce">
+                  <Award className="h-4 w-4 mr-1" />
+                  <span className="text-sm font-medium">+{coinsEarned} coins!</span>
+                </div>
+              )}
+              <button
+                onClick={() => setVoiceEnabled(!voiceEnabled)}
+                className={`p-2 rounded-full ${voiceEnabled ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-500'} hover:opacity-80 transition-colors`}
+                title={voiceEnabled ? "Disable voice responses" : "Enable voice responses"}
+              >
+                {voiceEnabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
+              </button>
+              <button
+                onClick={() => setStreamingEnabled(!streamingEnabled)}
+                className={`px-3 py-2 text-sm rounded-lg transition-colors ${
+                  streamingEnabled 
+                    ? 'bg-green-100 text-green-700 hover:bg-green-200' 
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+                title={streamingEnabled ? "Disable live streaming" : "Enable live streaming"}
+              >
+                {streamingEnabled ? '🔴 Live' : '⚫ Standard'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowThinkingSidebar(!showThinkingSidebar);
+                  // If opening AI Mind, close resources to prevent overlap
+                  if (!showThinkingSidebar && showResources) {
+                    setShowResources(false);
+                  }
+                }}
+                className={`px-3 py-2 text-sm rounded-lg transition-colors ${
+                  showThinkingSidebar 
+                    ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' 
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+                title={showThinkingSidebar ? "Hide AI thoughts" : "Show AI thoughts"}
+              >
+                🧠 AI Mind {showThinkingSidebar && <span className="ml-1 text-xs">●</span>}
+              </button>
+              <button
+                onClick={() => setShowSidebar(!showSidebar)}
+                className="px-4 py-2 text-sm bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-lg flex items-center transition-colors"
+              >
+                <MessageCircle className="h-4 w-4 mr-2" />
+                Chat History
+              </button>
+              <button
+                onClick={() => {
+                  setShowResources(!showResources);
+                  // If opening Resources, close AI Mind to prevent overlap
+                  if (!showResources && showThinkingSidebar) {
+                    setShowThinkingSidebar(false);
+                  }
+                }}
+                className="px-4 py-2 text-sm bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-lg flex items-center transition-colors"
+              >
+                <Book className="h-4 w-4 mr-2" />
+                Resources {showResources && <span className="ml-1 text-xs">●</span>}
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="flex flex-1 overflow-hidden">
+        {/* Chat History Sidebar */}
+        <aside className={`bg-white border-r border-gray-200 w-80 flex-shrink-0 overflow-y-auto transition-all duration-300 ease-in-out transform ${showSidebar ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed lg:static left-0 top-16 bottom-0 z-20 shadow-lg lg:shadow-none`}>
+          <div className="p-4 border-b border-gray-200">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-indigo-900">Chat History</h2>
+              <button
+                onClick={createNewThread}
+                className="flex items-center px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                New Chat
+              </button>
+            </div>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto">
+            {loadingThreads ? (
+              <div className="p-4">
+                <div className="animate-pulse space-y-3">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="h-16 bg-gray-200 rounded-lg"></div>
+                  ))}
+                </div>
+              </div>
+            ) : threads.length === 0 ? (
+              <div className="p-4 text-center text-gray-500">
+                <MessageCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>No conversations yet</p>
+                <p className="text-sm">Start a new chat to begin</p>
+              </div>
+            ) : (
+              <div className="p-2">
+                {threads.map(thread => (
+                  <div
+                    key={thread.id}
+                    className={`p-3 mb-2 rounded-lg cursor-pointer transition-colors group ${
+                      currentThread?.id === thread.id 
+                        ? 'bg-indigo-50 border-indigo-200 border' 
+                        : 'hover:bg-gray-50'
+                    }`}
+                    onClick={() => setCurrentThread(thread)}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        {editingTitle === thread.id ? (
+                          <input
+                            type="text"
+                            value={newTitle}
+                            onChange={(e) => setNewTitle(e.target.value)}
+                            onBlur={() => updateThreadTitle(thread.id, newTitle)}
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter') {
+                                updateThreadTitle(thread.id, newTitle);
+                              }
+                            }}
+                            className="w-full px-2 py-1 text-sm font-medium text-gray-800 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            autoFocus
+                          />
+                        ) : (
+                          <h3 
+                            className="text-sm font-medium text-gray-800 truncate"
+                            onDoubleClick={() => {
+                              setEditingTitle(thread.id);
+                              setNewTitle(thread.title);
+                            }}
+                          >
+                            {thread.title}
+                          </h3>
+                        )}
+                        <p className="text-xs text-gray-500 truncate mt-1">
+                          {thread.last_message}
+                        </p>
+                        <div className="flex items-center justify-between mt-2">
+                          <span className="text-xs text-gray-400">
+                            {formatDate(thread.updated_at)}
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            {thread.message_count} messages
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingTitle(thread.id);
+                            setNewTitle(thread.title);
+                          }}
+                          className="p-1 text-gray-400 hover:text-gray-600"
+                        >
+                          <Edit3 className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteThread(thread.id);
+                          }}
+                          className="p-1 text-gray-400 hover:text-red-600"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <button
+            onClick={() => setShowSidebar(false)}
+            className="lg:hidden absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100"
+          >
+            <X className="h-5 w-5 text-gray-500" />
+          </button>
+        </aside>
+
+        {/* Main Chat Area with Thinking Sidebar */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Chat Container */}
+          <main className={`flex-1 flex flex-col max-w-4xl mx-auto w-full px-4 py-6 transition-all duration-300 ${
+            showThinkingSidebar && showResources ? 'mr-160' : 
+            showThinkingSidebar || showResources ? 'mr-80' : ''
+          }`}>
+            {/* Chat messages */}
+            <div 
+              ref={chatContainerRef}
+              className="flex-1 overflow-y-auto mb-4 px-1 min-h-0"
+              style={{ scrollBehavior: 'smooth' }}
+            >
+              <div className="space-y-4 min-h-full">
+              {messages.length === 0 ? (
+                <div className="text-center py-8">
+                  <MessageCircle className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                  <h3 className="text-lg font-medium text-gray-800 mb-2">Start a conversation</h3>
+                  <p className="text-gray-500 mb-6">
+                    Share what's on your mind. I'm here to listen and provide support.
+                  </p>
+                  
+                  {/* Suggested questions */}
+                  <div className="max-w-2xl mx-auto">
+                    <p className="text-sm font-medium text-gray-600 mb-3">Try asking about:</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {suggestedQuestions.slice(0, 4).map((question, index) => (
+                        <button
+                          key={index}
+                          onClick={() => sendMessage(question)}
+                          className="p-3 text-left bg-white border border-gray-200 rounded-lg hover:border-indigo-300 hover:bg-indigo-50 transition-colors"
+                        >
+                          <span className="text-sm text-gray-700">{question}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                messages.map((message, index) => (
+                  <div key={index} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div 
+                      className={`max-w-lg rounded-2xl px-5 py-4 shadow-sm ${
+                        message.type === 'user' 
+                          ? 'bg-indigo-600 text-white' 
+                          : message.type === 'system'
+                            ? 'bg-gray-100 text-gray-700 border border-gray-200'
+                            : 'bg-white text-gray-800 border border-gray-200'
+                      }`}
+                    >
+                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                      {message.streaming && (
+                        <div className="flex items-center mt-1">
+                          <div className="flex space-x-1">
+                            <div className="w-1 h-1 bg-blue-600 rounded-full animate-bounce"></div>
+                            <div className="w-1 h-1 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                            <div className="w-1 h-1 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                          </div>
+                          <span className="text-xs text-blue-600 ml-2">streaming...</span>
+                        </div>
+                      )}
+                      {message.coins_earned > 0 && (
+                        <div className="flex items-center mt-2 text-xs text-yellow-600">
+                          <Award className="h-3 w-3 mr-1" />
+                          +{message.coins_earned} coins earned
+                        </div>
+                      )}
+                      <span className="text-xs opacity-70 mt-2 block">
+                        {formatTime(message.timestamp)}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+              
+              {/* No more inline thinking indicator - moved to sidebar */}
+              
+              {/* Loading indicator */}
+              {(isLoading && !isStreaming) && (
+                <div className="flex justify-start">
+                  <div className="max-w-lg rounded-2xl px-5 py-4 bg-white border border-gray-200">
+                    <div className="flex space-x-1">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              <div ref={messagesEndRef} />
+            </div>
+          </div>
+
+          {/* Input Form */}
+          <form onSubmit={(e) => { e.preventDefault(); sendMessage(); }} className="bg-white border-t border-gray-200 p-4">
+            <div className="flex items-end space-x-3 max-w-4xl mx-auto">
+              {/* Voice input button */}
+              <button
+                type="button"
+                onClick={toggleVoiceInput}
+                className={`p-3 rounded-full transition-colors ${
+                  isListening
+                    ? 'bg-red-600 text-white'
+                    : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                }`}
+              >
+                {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+              </button>
+
+              {/* Text input */}
+              <div className="flex-1 relative">
+                <textarea
+                  ref={inputRef}
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Share what's on your mind..."
+                  className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                  rows="1"
+                  style={{ minHeight: '48px', maxHeight: '120px' }}
+                />
+              </div>
+
+              {/* Send button */}
+              <button
+                type="submit"
+                disabled={!inputMessage.trim() || isLoading}
+                className="p-3 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <Send className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="mt-2 text-xs text-gray-500 text-center max-w-4xl mx-auto">
+              {streamingEnabled ? (
+                <span className="flex items-center justify-center space-x-1">
+                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                  <span>Live streaming enabled - Watch AI think in real-time!</span>
+                </span>
+              ) : (
+                <span>This is a supportive AI assistant. For emergencies, contact 911 or your local crisis helpline.</span>
+              )}
+            </div>
+          </form>
+        </main>
+
+        {/* AI Thinking Sidebar */}
+        <aside className={`bg-gradient-to-b from-purple-50 to-indigo-50 border-l border-purple-200 w-80 flex-shrink-0 overflow-hidden transition-all duration-300 ease-in-out transform ${
+          showThinkingSidebar ? 'translate-x-0' : 'translate-x-full'
+        } fixed ${showResources ? 'right-80' : 'right-0'} top-16 bottom-0 z-20 shadow-xl`}>
+          <div className="h-full flex flex-col p-4">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-2">
+                <div className="relative">
+                  <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-lg">🧠</span>
+                  </div>
+                  {isStreaming && (
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                  )}
+                </div>
+                <h2 className="text-lg font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+                  AI Mind
+                </h2>
+              </div>
+              <button
+                onClick={() => setShowThinkingSidebar(false)}
+                className="p-2 rounded-full hover:bg-white hover:bg-opacity-50 transition-colors"
+                title="Close AI Mind"
+              >
+                <X className="h-5 w-5 text-purple-600" />
+              </button>
+            </div>
+            
+            {/* Current thinking status */}
+            <div className="mb-6">
+              <div className="flex items-center space-x-2 mb-3">
+                <div className={`w-3 h-3 rounded-full ${isStreaming ? 'bg-green-400 animate-pulse' : 'bg-gray-300'}`}></div>
+                <span className={`text-sm font-medium ${isStreaming ? 'text-green-600' : 'text-gray-500'}`}>
+                  {isStreaming ? 'Actively Thinking' : 'Idle'}
+                </span>
+              </div>
+              
+              {thinkingMessage && (
+                <div className="bg-white bg-opacity-70 backdrop-blur-sm rounded-xl p-4 border border-purple-200 shadow-sm">
+                  <div className="flex items-start space-x-3">
+                    <div className="relative">
+                      <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+                      <div className="absolute inset-0 w-6 h-6 border-2 border-indigo-400 border-b-transparent rounded-full animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-purple-800 mb-1">Current Thought</p>
+                      <p className="text-sm text-purple-600">{thinkingMessage}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* Chain of thoughts history */}
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-0.5 bg-gradient-to-r from-purple-400 to-indigo-400 rounded"></div>
+                <h3 className="text-sm font-semibold text-purple-700">Thought Process</h3>
+                <div className="flex-1 h-0.5 bg-gradient-to-r from-indigo-400 to-purple-400 rounded"></div>
+              </div>
+              
+              {thinkingHistory.length > 0 ? (
+                <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
+                  {thinkingHistory.map((thought, index) => (
+                    <div 
+                      key={thought.id} 
+                      className={`p-3 rounded-lg transition-all duration-500 transform ${
+                        index === thinkingHistory.length - 1 
+                          ? 'bg-white bg-opacity-90 border border-purple-300 shadow-md scale-105' 
+                          : 'bg-white bg-opacity-50 border border-purple-200'
+                      }`}
+                    >
+                      <div className="flex items-start space-x-3">
+                        <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
+                          index === thinkingHistory.length - 1 
+                            ? 'bg-purple-500 animate-pulse' 
+                            : 'bg-purple-300'
+                        }`}></div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm transition-all duration-300 break-words ${
+                            index === thinkingHistory.length - 1 
+                              ? 'text-purple-800 font-medium' 
+                              : 'text-purple-600'
+                          }`}>
+                            {thought.text}
+                          </p>
+                          <p className="text-xs text-purple-400 mt-1">
+                            {new Date(thought.timestamp).toLocaleTimeString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-purple-100 to-indigo-100 rounded-full flex items-center justify-center">
+                    <span className="text-2xl opacity-50">💭</span>
+                  </div>
+                  <p className="text-sm text-purple-500 mb-1">No thoughts yet</p>
+                  <p className="text-xs text-purple-400">Send a message to see AI thinking</p>
+                </div>
+              )}
+            </div>
+            
+            {/* AI insights */}
+            <div className="mt-6 p-4 bg-white bg-opacity-60 backdrop-blur-sm rounded-xl border border-purple-200">
+              <h4 className="text-sm font-semibold text-purple-700 mb-2 flex items-center">
+                <span className="mr-2">✨</span>
+                AI Analysis Metrics
+              </h4>
+              <div className="space-y-2 text-xs text-purple-600">
+                <div className="flex justify-between">
+                  <span>Processing Mode:</span>
+                  <span className="font-medium">{streamingEnabled ? 'Real-time Streaming' : 'Standard'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Emotional Analysis:</span>
+                  <span className="font-medium text-green-600">●</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Crisis Detection:</span>
+                  <span className="font-medium text-green-600">●</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Context Awareness:</span>
+                  <span className="font-medium text-green-600">●</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Thoughts Logged:</span>
+                  <span className="font-medium">{thinkingHistory.length}/20</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Analysis Status:</span>
+                  <span className={`font-medium ${isStreaming ? 'text-green-600' : 'text-gray-500'}`}>
+                    {isStreaming ? 'Active' : 'Idle'}
+                  </span>
+                </div>
+              </div>
+              
+              {/* Clear thinking history button */}
+              {thinkingHistory.length > 0 && (
+                <button
+                  onClick={() => setThinkingHistory([])}
+                  className="mt-3 w-full px-3 py-2 text-xs bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg transition-colors"
+                >
+                  Clear Thought History
+                </button>
+              )}
+            </div>
+          </div>
+        </aside>
+        </div>
+
+        {/* Resources Sidebar */}
+        <aside className={`bg-white border-l border-gray-200 w-80 flex-shrink-0 overflow-y-auto transition-all duration-300 ease-in-out transform ${
+          showResources ? 'translate-x-0' : 'translate-x-full'
+        } lg:translate-x-0 fixed lg:static right-0 top-16 bottom-0 z-10 shadow-lg lg:shadow-none`}>
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-semibold text-indigo-900">Resources</h2>
+              <button
+                onClick={() => setShowResources(false)}
+                className="lg:hidden p-1 rounded-full hover:bg-gray-100"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+            
+            {/* Voice controls in sidebar */}
+            <div className="mb-6 p-3 bg-indigo-50 rounded-lg">
+              <h3 className="text-sm font-medium text-indigo-600 mb-2">Voice Controls</h3>
+              <div className="flex flex-col space-y-2">
+                <button
+                  onClick={() => setVoiceEnabled(!voiceEnabled)}
+                  className={`flex items-center justify-between px-3 py-2 rounded ${
+                    voiceEnabled ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-500'
+                  }`}
+                >
+                  <span className="flex items-center">
+                    <Volume2 className="h-4 w-4 mr-2" />
+                    Voice Responses
+                  </span>
+                  <span className="text-xs">{voiceEnabled ? 'On' : 'Off'}</span>
+                </button>
+                <button
+                  onClick={stopSpeaking}
+                  className={`flex items-center justify-between px-3 py-2 rounded ${
+                    isSpeaking ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-400'
+                  }`}
+                  disabled={!isSpeaking}
+                >
+                  <span className="flex items-center">
+                    <VolumeX className="h-4 w-4 mr-2" />
+                    Stop Speaking
+                  </span>
+                </button>
+              </div>
+            </div>
+            
+            {/* Recommended resources based on conversation */}
+            {resourcesList.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-sm font-medium text-indigo-600 mb-3">Recommended for You</h3>
+                <div className="space-y-3">
+                  {resourcesList.map((resource, index) => (
+                    <a 
+                      key={index}
+                      href={resource.url || '#'}
+                      className="block p-3 rounded-lg bg-indigo-50 hover:bg-indigo-100 transition-colors"
+                    >
+                      <h4 className="font-medium text-indigo-900">{resource.name}</h4>
+                      <p className="text-sm text-gray-600 mt-1">{resource.type}</p>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* General resources */}
+            <div>
+              <h3 className="text-sm font-medium text-gray-600 mb-3">General Resources</h3>
+              <div className="space-y-3">
+                <a 
+                  href="#"
+                  className="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100 transition-colors"
+                >
+                  <div className="flex justify-between items-center">
+                    <h4 className="font-medium text-gray-900">Breathing Techniques</h4>
+                    <ChevronRight className="h-4 w-4 text-gray-400" />
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1">Simple breathing exercises to reduce stress</p>
+                </a>
+                <a 
+                  href="#"
+                  className="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100 transition-colors"
+                >
+                  <div className="flex justify-between items-center">
+                    <h4 className="font-medium text-gray-900">Sleep Improvement</h4>
+                    <ChevronRight className="h-4 w-4 text-gray-400" />
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1">Tips for better sleep quality</p>
+                </a>
+                <a 
+                  href="#"
+                  className="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100 transition-colors"
+                >
+                  <div className="flex justify-between items-center">
+                    <h4 className="font-medium text-gray-900">Meditation Basics</h4>
+                    <ChevronRight className="h-4 w-4 text-gray-400" />
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1">Introduction to meditation for beginners</p>
+                </a>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      {/* Voice accessibility notifications */}
+      {isListening && (
+        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-indigo-600 text-white px-4 py-2 rounded-full shadow-lg flex items-center space-x-2 z-50">
+          <Mic className="h-4 w-4 animate-pulse" />
+          <span>Listening...</span>
+        </div>
+      )}
+      
+      {isSpeaking && (
+        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-indigo-600 text-white px-4 py-2 rounded-full shadow-lg flex items-center space-x-2 z-50">
+          <Volume2 className="h-4 w-4 animate-pulse" />
+          <span>Speaking...</span>
+          <button onClick={stopSpeaking} className="ml-2 bg-white bg-opacity-20 rounded-full p-1">
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      )}
+
+      {/* Emergency Resources Modal */}
+      {showEmergencyResources && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-red-600">Crisis Resources</h3>
+              <button
+                onClick={() => {
+                  setResourcesList([]);
+                  setShowEmergencyResources(false);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <p className="text-gray-700 mb-4">
+              If you're in crisis or having thoughts of self-harm, please reach out for immediate help:
+            </p>
+            <div className="space-y-3">
+              {resourcesList.map((resource, index) => (
+                <div key={index} className="p-3 bg-red-50 rounded-lg border border-red-200">
+                  <h4 className="font-medium text-red-800">{resource.name}</h4>
+                  <p className="text-red-700 font-semibold">{resource.contact}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default MentalHealthChat;

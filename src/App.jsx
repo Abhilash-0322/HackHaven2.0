@@ -3,39 +3,66 @@ import Landing from './pages/Landing';
 import MusicRecommend from './pages/MusicRecommend';
 import Layout from './components/Layout';
 import './App.css';
-import MentalHealthChat from './pages/MentalHealthChat';
+import MentalHealthChat from './pages/MentalHealthChatThreaded';
 import JournalPage from './pages/Journal';
 import TherapistAppointments from './pages/TherapistAppointments';
 import BookRecommender from './pages/BookRecommender';
 import CoinsPage from './pages/CoinsPage';
-// import BookRecommenderDemo from './pages/BookRecommenderDemo';
-
 import BookRecommend from './pages/BookRecommend';
 import BooksPage from './pages/BookPage';
-// import JournalPage from './pages/JournalPage';
+import Login from './components/Login';
+import Register from './components/Register';
+import ProtectedRoute from './components/ProtectedRoute';
+import { AuthProvider } from './contexts/AuthContext';
 
 function App() {
   
   return (
-    
-    <Router>
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Landing />} />
-          <Route path='/therapists' element={<TherapistAppointments/>}/>
-          <Route path="/musicrecommend" element={<MusicRecommend />} />
-          <Route path="/chat" element={<MentalHealthChat/>}/>
-          <Route path='/journal' element={<JournalPage/>}/>
-          {/* <Route path='/books' element={<MoodBasedBookRecommender/>}/> */}
-          <Route path="/books" element={<BooksPage/>} />
-          {/* <Route path="/books/details/:bookId" element={<BookDetails />} /> */}
-          <Route path="/coins" element={<CoinsPage />} />
-          {/* <Route path='/journal' element={<JournalPage/>}/> */}
-          {/* Future routes will be added here */}
-          <Route path="*" element={<div className="h-screen flex items-center justify-center">Page not found</div>} />
-        </Route>
-      </Routes>
-    </Router>
+    <AuthProvider>
+      <Router>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          
+          {/* Protected routes */}
+          <Route path="/" element={<Layout />}>
+            <Route index element={<Landing />} />
+            <Route path='/therapists' element={
+              <ProtectedRoute>
+                <TherapistAppointments/>
+              </ProtectedRoute>
+            }/>
+            <Route path="/musicrecommend" element={
+              <ProtectedRoute>
+                <MusicRecommend />
+              </ProtectedRoute>
+            } />
+            <Route path="/chat" element={
+              <ProtectedRoute>
+                <MentalHealthChat/>
+              </ProtectedRoute>
+            }/>
+            <Route path='/journal' element={
+              <ProtectedRoute>
+                <JournalPage/>
+              </ProtectedRoute>
+            }/>
+            <Route path="/books" element={
+              <ProtectedRoute>
+                <BooksPage/>
+              </ProtectedRoute>
+            } />
+            <Route path="/coins" element={
+              <ProtectedRoute>
+                <CoinsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="*" element={<div className="h-screen flex items-center justify-center">Page not found</div>} />
+          </Route>
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
 }
 

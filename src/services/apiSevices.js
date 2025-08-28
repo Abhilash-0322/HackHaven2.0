@@ -1,7 +1,7 @@
 // src/services/apiService.js
 
 // Configure the base URL for your API server
-const API_BASE_URL = 'http://localhost:8000'; // Adjust this to your FastAPI server URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 // Coins API functions
 export const coinService = {

@@ -12,7 +12,7 @@ const BooksPage = () => {
   const [error, setError] = useState(null);
 
   // API base URL
-  const API_URL = 'http://localhost:8000';
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
   // Fetch mood-based book recommendations on mount
   useEffect(() => {

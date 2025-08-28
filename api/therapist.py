@@ -634,8 +634,8 @@ async def seed_therapists():
                 "specializations": ["Anxiety", "Depression", "Stress Management"],
                 "experience_years": 12,
                 "education": "Ph.D in Clinical Psychology, Stanford University",
-                "bio": "Dr. Johnson specializes in cognitive behavioral therapy...",
-                "photo_url": "/api/placeholder/200/200",
+                "bio": "Dr. Johnson specializes in cognitive behavioral therapy and mindfulness techniques to help clients overcome anxiety and depression.",
+                "photo_url": "https://img.freepik.com/free-photo/female-doctor-hospital-with-stethoscope_23-2148827774.jpg?ga=GA1.1.759901056.1745457952&semt=ais_hybrid&w=740",
                 "hourly_rate": 120.00,
                 "languages": ["English", "Spanish"],
                 "rating": 4.8,
@@ -643,40 +643,108 @@ async def seed_therapists():
                 "license_number": "PSY-12345-CA",
                 "availability": generate_availability(30)
             },
-            # Add more therapists as needed
+            {
+                "name": "Dr. Michael Chen",
+                "specializations": ["Trauma", "PTSD", "Family Therapy"],
+                "experience_years": 15,
+                "education": "Psy.D in Clinical Psychology, Columbia University",
+                "bio": "Dr. Chen has extensive experience helping clients process trauma and rebuild their lives using evidence-based approaches.",
+                "photo_url": "https://img.freepik.com/free-photo/medium-shot-doctor-with-stethoscope_23-2148816188.jpg?semt=ais_hybrid&w=740",
+                "hourly_rate": 135.00,
+                "languages": ["English", "Mandarin"],
+                "rating": 4.7,
+                "total_sessions": 892,
+                "license_number": "PSY-67890-NY"
+            },
+            {
+                "name": "Maya Rodriguez, LMFT",
+                "specializations": ["Relationships", "Couples Therapy", "Self-Esteem"],
+                "experience_years": 8,
+                "education": "M.S. in Marriage and Family Therapy, NYU",
+                "bio": "Maya helps couples and individuals navigate relationship challenges and build healthier connections.",
+                "photo_url": "https://img.freepik.com/free-psd/cute-3d-cartoon-female-doctor-wearing-glasses-white-coat-with-stethoscope-healthcare-professional-illustration_632498-32034.jpg?ga=GA1.1.759901056.1745457952&semt=ais_hybrid&w=740",
+                "hourly_rate": 100.00,
+                "languages": ["English", "Spanish"],
+                "rating": 4.9,
+                "total_sessions": 654,
+                "license_number": "LMFT-11223-CA"
+            },
+            {
+                "name": "Dr. James Wilson",
+                "specializations": ["Addiction Recovery", "Substance Abuse", "Mental Health"],
+                "experience_years": 18,
+                "education": "Ph.D in Psychology, Yale University",
+                "bio": "Dr. Wilson works with clients struggling with addiction and co-occurring mental health issues to achieve lasting recovery.",
+                "photo_url": "https://img.freepik.com/free-photo/medium-shot-man-working-as-nurse_23-2151061667.jpg?ga=GA1.1.759901056.1745457952&semt=ais_hybrid&w=740",
+                "hourly_rate": 140.00,
+                "languages": ["English"],
+                "rating": 4.6,
+                "total_sessions": 1156,
+                "license_number": "PSY-33445-CT"
+            },
+            {
+                "name": "Aisha Patel, LCSW",
+                "specializations": ["Cultural Identity", "Grief & Loss", "Life Transitions"],
+                "experience_years": 7,
+                "education": "MSW, University of Chicago",
+                "bio": "Aisha provides culturally sensitive therapy to help clients navigate life transitions and find meaning through difficult times.",
+                "photo_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRvWaFP9xwOciAU_yQQEyw0tqcrcJRWPyegtg&s",
+                "hourly_rate": 95.00,
+                "languages": ["English", "Hindi", "Gujarati"],
+                "rating": 4.8,
+                "total_sessions": 445,
+                "license_number": "LCSW-55667-IL"
+            }
         ]
         
+        # Generate availability for each therapist
         for therapist in therapists:
-            available_slots = therapist["availability"]
-            num_to_book = random.randint(1, 3)
-            slots_to_book = random.sample(available_slots, min(num_to_book, len(available_slots)))
-            
-            for slot in slots_to_book:
-                slot["is_booked"] = True
+            therapist["availability"] = generate_availability(30)
         
         await therapists_collection.insert_many(therapists)
         print("Enhanced therapists database seeded successfully")
         await seed_sample_appointments()
+    else:
+        # If therapists exist, refresh their availability and clean up old appointments
+        await refresh_therapist_availability()
+        await cleanup_past_appointments()
+        
+        # Check if we need more future appointments
+        now = datetime.now().replace(tzinfo=None)
+        future_appointments = await appointments_collection.count_documents({
+            "start_time": {"$gt": now}
+        })
+        
+        if future_appointments < 5:  # If less than 5 future appointments, seed more
+            await seed_sample_appointments()
 
 async def seed_sample_appointments():
+    """Seed sample appointments with future dates only"""
     sample_appointments = []
     therapists = await therapists_collection.find().to_list(length=10)
     
     user_ids = ["user123", "user456", "user789"]
-    statuses = ["scheduled", "completed", "cancelled"]
     session_types = ["video", "phone", "in-person"]
+    now = datetime.now().replace(tzinfo=None)
     
     for therapist in therapists:
-        available_slots = [slot for slot in therapist["availability"] if not slot["is_booked"]]
+        # Only get future available slots
+        available_slots = [
+            slot for slot in therapist["availability"] 
+            if not slot["is_booked"] and slot["start_time"] > now
+        ]
+        
         if not available_slots:
             continue
         
-        num_appointments = random.randint(1, 2)
+        # Create 1-3 future appointments per therapist
+        num_appointments = random.randint(1, 3)
         selected_slots = random.sample(available_slots, min(num_appointments, len(available_slots)))
         
         for slot in selected_slots:
             user_id = random.choice(user_ids)
-            status = "scheduled" if slot["start_time"] > datetime.now() else random.choice(statuses)
+            # All appointments are scheduled since they're in the future
+            status = "scheduled"
             
             appointment = {
                 "appointment_id": str(uuid4()),
@@ -690,11 +758,12 @@ async def seed_sample_appointments():
                 "session_type": random.choice(session_types),
                 "cost": therapist["hourly_rate"],
                 "notes": f"Sample appointment for {therapist['name']}" if random.random() > 0.5 else None,
-                "created_at": datetime.now() - timedelta(days=random.randint(1, 30))
+                "created_at": datetime.now() - timedelta(days=random.randint(1, 7))  # Created within last week
             }
             
             sample_appointments.append(appointment)
             
+            # Mark the slot as booked
             await therapists_collection.update_one(
                 {"_id": ObjectId(therapist["_id"]), 
                  "availability.start_time": slot["start_time"]},
@@ -703,7 +772,60 @@ async def seed_sample_appointments():
     
     if sample_appointments:
         await appointments_collection.insert_many(sample_appointments)
-        print(f"Seeded {len(sample_appointments)} sample appointments")
+        print(f"Seeded {len(sample_appointments)} future sample appointments")
+
+async def refresh_therapist_availability():
+    """Refresh availability by generating new future slots and removing past ones"""
+    now = datetime.now().replace(tzinfo=None)
+    
+    # Get all therapists
+    therapists = await therapists_collection.find().to_list(length=100)
+    
+    for therapist in therapists:
+        current_availability = therapist.get("availability", [])
+        
+        # Remove past slots
+        future_availability = [
+            slot for slot in current_availability 
+            if slot["start_time"] > now
+        ]
+        
+        # Check if we need more future availability (less than 50 slots)
+        if len(future_availability) < 50:
+            # Generate new availability for the next 30 days
+            new_availability = generate_availability(30)
+            
+            # Merge with existing future availability, avoiding duplicates
+            existing_times = {slot["start_time"] for slot in future_availability}
+            for slot in new_availability:
+                if slot["start_time"] not in existing_times:
+                    future_availability.append(slot)
+            
+            # Update therapist with new availability
+            await therapists_collection.update_one(
+                {"_id": therapist["_id"]},
+                {"$set": {"availability": sorted(future_availability, key=lambda x: x["start_time"])}}
+            )
+    
+    print("Therapist availability refreshed")
+
+async def cleanup_past_appointments():
+    """Mark past appointments as completed if they were scheduled"""
+    now = datetime.now().replace(tzinfo=None)
+    
+    # Update past scheduled appointments to completed
+    result = await appointments_collection.update_many(
+        {
+            "start_time": {"$lt": now},
+            "status": "scheduled"
+        },
+        {
+            "$set": {"status": "completed"}
+        }
+    )
+    
+    if result.modified_count > 0:
+        print(f"Marked {result.modified_count} past appointments as completed")
 
 @router.get("/", response_description="List all therapists")
 async def list_therapists(
@@ -713,6 +835,19 @@ async def list_therapists(
     max_rate: Optional[float] = Query(None, description="Maximum hourly rate filter"),
     sort_by: Optional[str] = Query("rating", description="Sort by: rating, rate, experience")
 ):
+    # Auto-refresh check: refresh availability if more than 70% of appointments are past
+    now = datetime.now().replace(tzinfo=None)
+    total_appointments = await appointments_collection.count_documents({})
+    future_appointments = await appointments_collection.count_documents({
+        "start_time": {"$gt": now}
+    })
+    
+    if total_appointments > 0 and (future_appointments / total_appointments) < 0.3:
+        # If less than 30% of appointments are in the future, refresh
+        await refresh_therapist_availability()
+        await cleanup_past_appointments()
+        await seed_sample_appointments()
+    
     query = {}
     
     if specialization:
@@ -737,6 +872,21 @@ async def list_therapists(
     therapists = await therapists_collection.find(query).sort(sort_field, sort_order).to_list(length=100)
     return [parse_therapist(therapist) for therapist in therapists]
 
+@router.get("/specializations", response_description="Get all specializations")
+async def get_specializations():
+    """
+    Get a list of all therapist specializations for filtering
+    """
+    try:
+        specializations = await therapists_collection.distinct("specializations")
+        if not specializations:
+            # If no specializations found, ensure database is seeded
+            await seed_therapists()
+            specializations = await therapists_collection.distinct("specializations")
+        return {"specializations": sorted(specializations)}
+    except Exception as e:
+        raise HTTPException(500, f"Error fetching specializations: {str(e)}")
+
 @router.get("/{therapist_id}", response_description="Get a therapist by ID")
 async def get_therapist(therapist_id: str):
     if not ObjectId.is_valid(therapist_id):
@@ -755,18 +905,13 @@ async def get_therapist(therapist_id: str):
             "is_booked": slot["is_booked"]
         }
         for slot in therapist.get("availability", [])
-        if slot["start_time"] <= now
+        if slot["start_time"] > now and not slot["is_booked"]
     ]
     
     availability.sort(key=lambda x: x["start_time"])
     therapist_data["available_slots"] = availability
     
     return therapist_data
-
-@router.get("/specializations", response_description="Get all specializations")
-async def get_specializations():
-    specializations = await therapists_collection.distinct("specializations")
-    return {"specializations": sorted(specializations)}
 
 @router.post("/appointments", response_description="Book a new appointment")
 async def book_appointment(appointment: AppointmentCreate = Body(...)):
@@ -782,6 +927,8 @@ async def book_appointment(appointment: AppointmentCreate = Body(...)):
     end_time = appointment.end_time.replace(microsecond=0, tzinfo=None)
     date = appointment.date.replace(microsecond=0, tzinfo=None)
     
+    print(f"Booking request - Start: {start_time}, End: {end_time}")  # Debug log
+    
     if start_time >= end_time:
         raise HTTPException(400, "Start time must be before end time")
     
@@ -791,19 +938,37 @@ async def book_appointment(appointment: AppointmentCreate = Body(...)):
     # Check if time slot is available with tolerance
     slot_available = False
     slot_index = None
+    available_slots_debug = []
+    
     for idx, slot in enumerate(therapist["availability"]):
         slot_start = slot["start_time"].replace(tzinfo=None)
         slot_end = slot["end_time"].replace(tzinfo=None)
-        # Allow 1-second tolerance
-        if (abs((slot_start - start_time).total_seconds()) <= 1 and 
-            abs((slot_end - end_time).total_seconds()) <= 1 and 
+        available_slots_debug.append({
+            "slot_start": slot_start.isoformat(),
+            "slot_end": slot_end.isoformat(),
+            "is_booked": slot["is_booked"]
+        })
+        
+        # Allow 5-second tolerance and check if slot is not booked
+        start_time_diff = abs((slot_start - start_time).total_seconds())
+        end_time_diff = abs((slot_end - end_time).total_seconds())
+        
+        if (start_time_diff <= 5 and 
+            end_time_diff <= 5 and 
             not slot["is_booked"]):
             slot_available = True
             slot_index = idx
             break
     
     if not slot_available:
-        raise HTTPException(400, "This time slot is not available")
+        # Provide detailed error message
+        error_msg = f"Time slot not available. Requested: {start_time.isoformat()} - {end_time.isoformat()}. "
+        unbooked_slots = [s for s in available_slots_debug if not s["is_booked"]]
+        if unbooked_slots:
+            error_msg += f"Available slots: {unbooked_slots[:3]}"  # Show first 3 available slots
+        else:
+            error_msg += "No available slots found."
+        raise HTTPException(400, error_msg)
     
     new_appointment = Appointment(
         user_id=appointment.user_id,
@@ -818,6 +983,10 @@ async def book_appointment(appointment: AppointmentCreate = Body(...)):
     )
     
     appointment_data = new_appointment.model_dump(by_alias=True)
+    # Remove the _id field to let MongoDB auto-generate it
+    if "_id" in appointment_data:
+        del appointment_data["_id"]
+    
     inserted_appointment = await appointments_collection.insert_one(appointment_data)
     
     await therapists_collection.update_one(
@@ -903,6 +1072,26 @@ async def cancel_appointment(appointment_id: str):
     )
     
     return {"message": "Appointment cancelled successfully"}
+
+@router.post("/maintenance/refresh", response_description="Refresh availability and appointments")
+async def refresh_database():
+    """
+    Maintenance endpoint to refresh therapist availability and seed new appointments
+    """
+    try:
+        await refresh_therapist_availability()
+        await cleanup_past_appointments()
+        await seed_sample_appointments()
+        return {
+            "message": "Database refreshed successfully",
+            "actions": [
+                "Refreshed therapist availability",
+                "Cleaned up past appointments", 
+                "Seeded new sample appointments"
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(500, f"Error refreshing database: {str(e)}")
 
 @router.on_event("startup")
 async def startup_event():

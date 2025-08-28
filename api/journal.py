@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
 from pymongo import MongoClient
+import motor.motor_asyncio
 import os
 from bson import ObjectId
 from bson.json_util import dumps
@@ -17,6 +18,8 @@ from helplines import HELPLINES
 
 # Import the chatbot agent for mood analysis
 from chatbot import get_llm, ChatPromptTemplate, LLMChain
+# Import authentication
+from auth import get_current_active_user
 
 load_dotenv()
 
@@ -25,6 +28,13 @@ MONGODB_URI = os.getenv("MONGODB_URI")
 client = MongoClient(MONGODB_URI)
 db = client.calmverse
 journal_collection = db.journals
+
+# Async MongoDB client for coin operations
+async_client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URI)
+async_db = async_client.calmverse
+async_journal_collection = async_db.journals
+async_users_collection = async_db.users
+async_transactions_collection = async_db.coin_transactions
 
 # Create router
 router = APIRouter(prefix="/journal", tags=["Journal"])
@@ -217,10 +227,15 @@ async def award_coins_for_journal(user_id: str, journal_id: str, title: str):
 
 
 @router.post("/entries", response_description="Create a new journal entry")
-async def create_journal_entry(request: Request, journal: JournalEntry = Body(...)):
+async def create_journal_entry(
+    request: Request, 
+    journal: JournalEntry = Body(...),
+    current_user: dict = Depends(get_current_active_user)
+):
     """Create a new journal entry in the database with an AI-generated title and check for harmful content"""
     journal_dict = journal.dict()
     journal_dict["created_at"] = datetime.now()
+    journal_dict["user_id"] = str(current_user["_id"])  # Add user ID
     
     # Get client IP address for geolocation
     client_ip = request.client.host
@@ -284,6 +299,27 @@ async def create_journal_entry(request: Request, journal: JournalEntry = Body(..
     
     new_journal = journal_collection.insert_one(journal_dict)
     created_journal = journal_collection.find_one({"_id": new_journal.inserted_id})
+    
+    # Award calm coins for creating a journal entry
+    try:
+        await async_users_collection.update_one(
+            {"_id": ObjectId(current_user["_id"])},
+            {"$inc": {"calm_coins": 10}}  # Award 10 coins for each journal entry
+        )
+        
+        # Also record the transaction
+        transaction_dict = {
+            "user_id": str(current_user["_id"]),
+            "amount": 10,
+            "transaction_type": "earn",
+            "source": "journal",
+            "description": "Created a new journal entry",
+            "timestamp": datetime.now()
+        }
+        await async_transactions_collection.insert_one(transaction_dict)
+    except Exception as e:
+        # Don't fail journal creation if coin awarding fails
+        print(f"Failed to award coins: {e}")
     
     return parse_json(created_journal)
 
@@ -354,17 +390,21 @@ async def add_mood_analysis(id: str):
 
 # Include the other existing endpoints
 @router.get("/entries", response_description="List all journal entries")
-async def list_journal_entries():
-    """Retrieve all journal entries from the database"""
-    journals = journal_collection.find().sort("created_at", -1)
+async def list_journal_entries(current_user: dict = Depends(get_current_active_user)):
+    """Retrieve all journal entries from the database for the authenticated user"""
+    journals = journal_collection.find({"user_id": str(current_user["_id"])}).sort("created_at", -1)
     return parse_json(journals)
 
 
 @router.get("/entries/{id}", response_description="Get a single journal entry")
-async def get_journal_entry(id: str):
-    """Retrieve a specific journal entry by ID"""
+async def get_journal_entry(id: str, current_user: dict = Depends(get_current_active_user)):
+    """Retrieve a specific journal entry by ID for the authenticated user"""
     try:
-        if journal := journal_collection.find_one({"_id": ObjectId(id)}):
+        journal = journal_collection.find_one({
+            "_id": ObjectId(id), 
+            "user_id": str(current_user["_id"])
+        })
+        if journal:
             return parse_json(journal)
         
         raise HTTPException(status_code=404, detail=f"Journal entry with ID {id} not found")
@@ -374,10 +414,13 @@ async def get_journal_entry(id: str):
     
 
 @router.delete("/entries/{id}", response_description="Delete a journal entry")
-async def delete_journal_entry(id: str):
-    """Delete a journal entry by ID"""
+async def delete_journal_entry(id: str, current_user: dict = Depends(get_current_active_user)):
+    """Delete a journal entry by ID for the authenticated user"""
     try:
-        delete_result = journal_collection.delete_one({"_id": ObjectId(id)})
+        delete_result = journal_collection.delete_one({
+            "_id": ObjectId(id), 
+            "user_id": str(current_user["_id"])
+        })
         
         if delete_result.deleted_count == 1:
             return {"message": f"Journal entry with ID {id} deleted successfully"}
@@ -388,8 +431,12 @@ async def delete_journal_entry(id: str):
 
 
 @router.put("/entries/{id}", response_description="Update a journal entry")
-async def update_journal_entry(id: str, journal: JournalEntry = Body(...)):
-    """Update a journal entry by ID with an AI-generated title"""
+async def update_journal_entry(
+    id: str, 
+    journal: JournalEntry = Body(...), 
+    current_user: dict = Depends(get_current_active_user)
+):
+    """Update a journal entry by ID with an AI-generated title for the authenticated user"""
     try:
         journal_dict = journal.dict(exclude_unset=True)
         
@@ -398,17 +445,27 @@ async def update_journal_entry(id: str, journal: JournalEntry = Body(...)):
             journal_dict["title"] = generate_journal_title(journal_dict["content"])
         
         update_result = journal_collection.update_one(
-            {"_id": ObjectId(id)}, {"$set": journal_dict}
+            {"_id": ObjectId(id), "user_id": str(current_user["_id"])}, 
+            {"$set": journal_dict}
         )
         
         if update_result.modified_count == 1:
-            if updated_journal := journal_collection.find_one({"_id": ObjectId(id)}):
+            updated_journal = journal_collection.find_one({
+                "_id": ObjectId(id), 
+                "user_id": str(current_user["_id"])
+            })
+            if updated_journal:
                 return parse_json(updated_journal)
         
-        if journal_collection.find_one({"_id": ObjectId(id)}) is None:
+        # Check if journal exists for this user
+        journal_exists = journal_collection.find_one({
+            "_id": ObjectId(id), 
+            "user_id": str(current_user["_id"])
+        })
+        if journal_exists is None:
             raise HTTPException(status_code=404, detail=f"Journal entry with ID {id} not found")
             
-        return parse_json(journal_collection.find_one({"_id": ObjectId(id)}))
+        return parse_json(journal_exists)
     except Exception:
         raise HTTPException(status_code=400, detail=f"Invalid ID format or update data")
 
@@ -419,14 +476,16 @@ async def get_journal_prompts():
     return journal_prompts
 
 @router.get("/insights", response_description="Get journal insights")
-async def get_journal_insights():
-    """Generate insights based on journal entries (frequency, mood patterns, etc.)"""
-    # Count total entries
-    total_entries = journal_collection.count_documents({})
+async def get_journal_insights(current_user: dict = Depends(get_current_active_user)):
+    """Generate insights based on journal entries (frequency, mood patterns, etc.) for the authenticated user"""
+    user_id = str(current_user["_id"])
     
-    # Get most used moods
+    # Count total entries for this user
+    total_entries = journal_collection.count_documents({"user_id": user_id})
+    
+    # Get most used moods for this user
     mood_pipeline = [
-        {"$match": {"mood": {"$exists": True, "$ne": None}}},
+        {"$match": {"user_id": user_id, "mood": {"$exists": True, "$ne": None}}},
         {"$group": {"_id": "$mood", "count": {"$sum": 1}}},
         {"$sort": {"count": -1}},
         {"$limit": 5}

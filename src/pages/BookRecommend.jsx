@@ -283,14 +283,14 @@ const BookRecommend = () => {
   }, []);
 
   const moods = [
-    { value: 'happy', label: 'Happy', color: 'bg-yellow-200' },
-    { value: 'calm', label: 'Calm', color: 'bg-blue-200' },
-    { value: 'sad', label: 'Sad', color: 'bg-indigo-200' },
-    { value: 'anxious', label: 'Anxious', color: 'bg-purple-200' },
-    { value: 'stressed', label: 'Stressed', color: 'bg-red-200' },
-    { value: 'motivated', label: 'Motivated', color: 'bg-green-200' },
-    { value: 'hopeful', label: 'Hopeful', color: 'bg-teal-200' },
-    { value: 'inspired', label: 'Inspired', color: 'bg-amber-200' }
+    { value: 'happy', label: 'Happy', color: 'bg-yellow-200' },           // Sunny yellow - classic happiness
+    { value: 'calm', label: 'Calm', color: 'bg-sky-200' },                // Soft sky blue - tranquil calm
+    { value: 'sad', label: 'Sad', color: 'bg-slate-200' },                // Cool slate - melancholy sadness
+    { value: 'anxious', label: 'Anxious', color: 'bg-yellow-100' },       // Pale yellow - nervous anxiety
+    { value: 'stressed', label: 'Stressed', color: 'bg-red-100' },        // Light red - stress tension
+    { value: 'motivated', label: 'Motivated', color: 'bg-green-200' },    // Natural green - motivation
+    { value: 'hopeful', label: 'Hopeful', color: 'bg-cyan-200' },         // Bright cyan - optimistic hope
+    { value: 'inspired', label: 'Inspired', color: 'bg-purple-200' }      // Creative purple - inspiration
   ];
 
   const selectMood = async (mood) => {

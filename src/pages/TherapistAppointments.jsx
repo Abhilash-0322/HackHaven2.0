@@ -1203,7 +1203,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const TherapistAppointments = () => {
   const [therapists, setTherapists] = useState([]);
@@ -1333,20 +1333,14 @@ const TherapistAppointments = () => {
       setBookingError(null);
       setIsLoading(true);
       
-      // Normalize dates to UTC and remove microseconds
-      const startTime = new Date(selectedSlot.start_time);
-      startTime.setMilliseconds(0);
-      const endTime = new Date(selectedSlot.end_time);
-      endTime.setMilliseconds(0);
-      const date = new Date(startTime);
-      date.setHours(0, 0, 0, 0);
-      
+      // Use the slot times directly without timezone conversion
+      // The backend expects UTC times, and slots are already in UTC
       const appointmentData = {
         user_id: userId,
         therapist_id: selectedTherapist._id,
-        date: date.toISOString(),
-        start_time: startTime.toISOString(),
-        end_time: endTime.toISOString(),
+        date: selectedSlot.start_time, // Use the same date as start_time
+        start_time: selectedSlot.start_time,
+        end_time: selectedSlot.end_time,
         session_type: sessionType,
         notes: ""
       };
