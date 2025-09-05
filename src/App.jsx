@@ -13,6 +13,7 @@ import BooksPage from './pages/BookPage';
 import Login from './components/Login';
 import Register from './components/Register';
 import ProtectedRoute from './components/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider } from './contexts/AuthContext';
 
 function App() {
@@ -40,7 +41,9 @@ function App() {
             } />
             <Route path="/chat" element={
               <ProtectedRoute>
-                <MentalHealthChat/>
+                <ErrorBoundary>
+                  <MentalHealthChat/>
+                </ErrorBoundary>
               </ProtectedRoute>
             }/>
             <Route path='/journal' element={

@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { 
   MessageCircle, Send, Plus, Trash2, Edit3, HelpCircle, Book, X, 
-  Mic, MicOff, Volume2, VolumeX, ChevronLeft, ChevronRight, Award, Clock, User, Bot
+  Mic, MicOff, Volume2, VolumeX, ChevronLeft, ChevronRight, Award, Clock, User, Bot,
+  Moon, Sun, Heart, Smile, Frown, Meh, Zap, Coffee, Home, Lightbulb, Shield,
+  BookOpen, Music, Calendar, Phone, AlertTriangle
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import authService from '../services/authService';
@@ -20,6 +22,8 @@ const MentalHealthChat = () => {
   const [showSidebar, setShowSidebar] = useState(true);
   const [editingTitle, setEditingTitle] = useState(null);
   const [newTitle, setNewTitle] = useState('');
+  const [hasStartedChatting, setHasStartedChatting] = useState(false);
+  const [showChatInterface, setShowChatInterface] = useState(false);
   
   // Voice chat state
   const [isListening, setIsListening] = useState(false);
@@ -40,6 +44,24 @@ const MentalHealthChat = () => {
   const [thinkingHistory, setThinkingHistory] = useState([]);
   const [streamingEnabled, setStreamingEnabled] = useState(true);
   const [showThinkingSidebar, setShowThinkingSidebar] = useState(false);
+
+  // New UX improvement states
+  const [darkMode, setDarkMode] = useState(false);
+  const [currentMood, setCurrentMood] = useState(null);
+  const [sessionGoal, setSessionGoal] = useState('');
+  const [showMoodSelector, setShowMoodSelector] = useState(false);
+  const [showGoalSelector, setShowGoalSelector] = useState(false);
+  const [showWellnessReminders, setShowWellnessReminders] = useState(true);
+  const [typingIndicator, setTypingIndicator] = useState(false);
+  const [messageReactions, setMessageReactions] = useState({});
+  const [showQuickActions, setShowQuickActions] = useState(true);
+  const [chatPersonality, setChatPersonality] = useState('supportive'); // supportive, professional, friendly
+  const [accessibilityMode, setAccessibilityMode] = useState(false);
+  const [fontSize, setFontSize] = useState('normal'); // small, normal, large
+  const [showProgressTracker, setShowProgressTracker] = useState(true);
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  const [isFirstVisit, setIsFirstVisit] = useState(false);
+  const [skipLoadMessages, setSkipLoadMessages] = useState(false);
   
   const messagesEndRef = useRef(null);
   const chatContainerRef = useRef(null);
@@ -47,7 +69,71 @@ const MentalHealthChat = () => {
   
   // API base URL
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-  
+
+  // Helper function to validate and sanitize messages
+  const sanitizeMessage = (message) => {
+    if (!message || typeof message !== 'object') {
+      return null;
+    }
+    
+    return {
+      type: message.type || 'system',
+      content: message.content || '',
+      timestamp: message.timestamp || new Date(),
+      coins_earned: message.coins_earned || 0,
+      streaming: message.streaming || false,
+      isEmergency: message.isEmergency || false
+    };
+  };
+
+  // Safe message setter
+  const setSafeMessages = (messagesOrUpdater) => {
+    if (typeof messagesOrUpdater === 'function') {
+      setMessages(prev => {
+        try {
+          const newMessages = messagesOrUpdater(prev);
+          if (!Array.isArray(newMessages)) {
+            console.warn('Invalid messages array, falling back to previous state');
+            return prev;
+          }
+          return newMessages.map(sanitizeMessage).filter(Boolean);
+        } catch (error) {
+          console.error('Error updating messages:', error);
+          return prev;
+        }
+      });
+    } else {
+      if (!Array.isArray(messagesOrUpdater)) {
+        console.warn('Invalid messages array provided');
+        return;
+      }
+      setMessages(messagesOrUpdater.map(sanitizeMessage).filter(Boolean));
+    }
+  };
+
+  // Debug useEffect to track messages changes
+  useEffect(() => {
+    console.log('DEBUG: Messages state changed, new length:', messages.length);
+    console.log('DEBUG: Messages array:', messages);
+  }, [messages]);
+
+  // Debug useEffect to track hasStartedChatting changes
+  useEffect(() => {
+    console.log('DEBUG: hasStartedChatting changed to:', hasStartedChatting);
+  }, [hasStartedChatting]);
+
+  // Auto-update hasStartedChatting based on messages (safety net)
+  useEffect(() => {
+    const hasUserMessages = messages.some(msg => msg.type === 'user');
+    if (hasUserMessages && !hasStartedChatting) {
+      console.log('DEBUG: Auto-setting hasStartedChatting to true based on user messages');
+      setHasStartedChatting(true);
+    } else if (!hasUserMessages && hasStartedChatting) {
+      console.log('DEBUG: Auto-setting hasStartedChatting to false - no user messages');
+      setHasStartedChatting(false);
+    }
+  }, [messages, hasStartedChatting]);
+
   // Initialize speech recognition
   useEffect(() => {
     if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
@@ -89,21 +175,82 @@ const MentalHealthChat = () => {
   
   // Load thread messages when current thread changes
   useEffect(() => {
-    if (currentThread) {
+    if (currentThread && !skipLoadMessages) {
       loadThreadMessages(currentThread.id);
+    }
+    if (skipLoadMessages) {
+      setSkipLoadMessages(false); // Reset the flag
     }
   }, [currentThread]);
   
-  // Sample suggested questions
-  const suggestedQuestions = [
-    "I've been feeling anxious lately",
-    "How can I improve my sleep?",
-    "I'm having trouble focusing",
-    "What are some mindfulness exercises?",
-    "I feel overwhelmed with work",
-    "How do I deal with stress?",
-    "I'm feeling lonely",
-    "Tips for better mental health"
+  // Sample suggested questions organized by category
+  const suggestedQuestions = {
+    anxiety: [
+      "I've been feeling anxious lately",
+      "How can I manage panic attacks?",
+      "What are some quick anxiety relief techniques?"
+    ],
+    sleep: [
+      "How can I improve my sleep?",
+      "I'm having trouble falling asleep",
+      "What's a good bedtime routine?"
+    ],
+    focus: [
+      "I'm having trouble focusing",
+      "How can I be more productive?",
+      "What are some concentration techniques?"
+    ],
+    stress: [
+      "I feel overwhelmed with work",
+      "How do I deal with stress?",
+      "What are some stress management tips?"
+    ],
+    relationships: [
+      "I'm feeling lonely",
+      "How do I improve my relationships?",
+      "I'm having conflict with someone"
+    ],
+    general: [
+      "What are some mindfulness exercises?",
+      "Tips for better mental health",
+      "How can I practice self-care?"
+    ]
+  };
+
+  // Quick action buttons for common needs
+  const quickActions = [
+    { icon: Heart, label: "Feeling Anxious", action: () => sendStreamingMessage("I'm feeling anxious right now. Can you help me?") },
+    { icon: Moon, label: "Can't Sleep", action: () => sendStreamingMessage("I'm having trouble sleeping. What can I do?") },
+    { icon: Zap, label: "Need Energy", action: () => sendStreamingMessage("I'm feeling low energy today. How can I boost my mood?") },
+    { icon: Coffee, label: "Overwhelmed", action: () => sendStreamingMessage("I'm feeling overwhelmed. Can you help me organize my thoughts?") },
+  ];
+
+  // Mood options for tracking
+  const moodOptions = [
+    { emoji: "😊", label: "Great", value: "great", color: "text-green-500" },
+    { emoji: "🙂", label: "Good", value: "good", color: "text-blue-500" },
+    { emoji: "😐", label: "Okay", value: "okay", color: "text-yellow-500" },
+    { emoji: "🙁", label: "Not Good", value: "not_good", color: "text-orange-500" },
+    { emoji: "😢", label: "Difficult", value: "difficult", color: "text-red-500" },
+  ];
+
+  // Session goals
+  const sessionGoals = [
+    "Reduce anxiety",
+    "Improve sleep",
+    "Manage stress",
+    "Boost mood",
+    "Practice mindfulness",
+    "Work through emotions",
+    "General support"
+  ];
+
+  // Wellness reminders
+  const wellnessReminders = [
+    { icon: Coffee, text: "Remember to stay hydrated", type: "hydration" },
+    { icon: Moon, text: "Consider taking a short break", type: "break" },
+    { icon: Heart, text: "Take a deep breath", type: "breathing" },
+    { icon: Lightbulb, text: "You're doing great by seeking support", type: "encouragement" }
   ];
   
   // Load user's chat threads
@@ -139,27 +286,91 @@ const MentalHealthChat = () => {
         coins_earned: msg.coins_earned || 0
       }));
       
-      setMessages(formattedMessages);
+      setSafeMessages(formattedMessages);
+      setHasStartedChatting(formattedMessages.length > 0);
+      setShowChatInterface(formattedMessages.some(msg => msg.type === 'user'));
     } catch (error) {
       console.error('Error loading thread messages:', error);
-      setMessages([]);
+      setSafeMessages([]);
+      setHasStartedChatting(false);
+      setShowChatInterface(false);
     }
   };
   
   // Create a new thread
   const createNewThread = () => {
     setCurrentThread(null);
-    setMessages([{
+    setHasStartedChatting(false); // Reset chatting state for new thread
+    setShowChatInterface(false); // Reset chat interface for new thread
+    setSafeMessages([{
       type: 'system',
       content: 'Welcome to ZenHeaven Mental Health Support. How are you feeling today?',
       timestamp: new Date(),
     }]);
   };
+
+  // Handle mood selection
+  const handleMoodSelection = (mood) => {
+    setCurrentMood(mood);
+    setShowMoodSelector(false);
+    const moodMessage = `I'm feeling ${mood.label.toLowerCase()} today.`;
+    sendStreamingMessage(moodMessage);
+  };
+
+  // Handle session goal selection
+  const handleGoalSelection = (goal) => {
+    setSessionGoal(goal);
+    setShowGoalSelector(false);
+    const goalMessage = `I'd like to focus on: ${goal}`;
+    sendStreamingMessage(goalMessage);
+  };
+
+  // Toggle dark mode
+  const toggleDarkMode = () => {
+    setDarkMode(!darkMode);
+    // Save preference to localStorage
+    localStorage.setItem('zenheaven-dark-mode', !darkMode);
+  };
+
+  // Toggle accessibility mode
+  const toggleAccessibilityMode = () => {
+    setAccessibilityMode(!accessibilityMode);
+    localStorage.setItem('zenheaven-accessibility', !accessibilityMode);
+  };
+
+  // Handle message reactions
+  const handleMessageReaction = (messageIndex, reaction) => {
+    setMessageReactions(prev => ({
+      ...prev,
+      [messageIndex]: reaction
+    }));
+  };
+
+  // Load user preferences on mount
+  useEffect(() => {
+    const savedDarkMode = localStorage.getItem('zenheaven-dark-mode') === 'true';
+    const savedAccessibility = localStorage.getItem('zenheaven-accessibility') === 'true';
+    const savedFontSize = localStorage.getItem('zenheaven-font-size') || 'normal';
+    const hasVisited = localStorage.getItem('zenheaven-visited');
+    
+    setDarkMode(savedDarkMode);
+    setAccessibilityMode(savedAccessibility);
+    setFontSize(savedFontSize);
+    
+    if (!hasVisited) {
+      setIsFirstVisit(true);
+      setShowHelpModal(true);
+      localStorage.setItem('zenheaven-visited', 'true');
+    }
+  }, []);
   
   // Send message to chatbot with streaming
   const sendStreamingMessage = async (messageContent = null) => {
     const content = messageContent || inputMessage.trim();
     if (!content) return;
+    
+    // Immediately show chat interface
+    setShowChatInterface(true);
     
     setIsLoading(true);
     setIsStreaming(true);
@@ -176,7 +387,15 @@ const MentalHealthChat = () => {
       content: content,
       timestamp: new Date()
     };
-    setMessages(prev => [...prev, userMessage]);
+    console.log('DEBUG: About to add user message:', userMessage);
+    setSafeMessages(prev => {
+      const newMessages = [...prev, userMessage];
+      console.log('DEBUG: New messages array:', newMessages);
+      console.log('DEBUG: User messages in new array:', newMessages.filter(m => m.type === 'user'));
+      return newMessages;
+    });
+    setHasStartedChatting(true); // Immediately mark that chatting has started
+    console.log('DEBUG: Added user message in sendStreamingMessage, new count will be:', messages.length + 1);
     
     try {
       const response = await authService.authenticatedFetch(`${API_URL}/mental-health/chat/stream`, {
@@ -203,7 +422,7 @@ const MentalHealthChat = () => {
       };
       
       // Add bot message placeholder
-      setMessages(prev => [...prev, currentBotMessage]);
+      setSafeMessages(prev => [...prev, currentBotMessage]);
       
       let buffer = '';
       
@@ -258,7 +477,7 @@ const MentalHealthChat = () => {
                   
                 case 'token':
                   // Only update the bot message in real-time, don't use streamingMessage
-                  setMessages(prev => {
+                  setSafeMessages(prev => {
                     const newMessages = [...prev];
                     const lastMessage = newMessages[newMessages.length - 1];
                     if (lastMessage && lastMessage.type === 'bot') {
@@ -274,10 +493,10 @@ const MentalHealthChat = () => {
                   // Keep thinking history for sidebar display
                   
                   // Update final message with metadata
-                  setMessages(prev => {
+                  setSafeMessages(prev => {
                     const newMessages = [...prev];
                     const lastMessage = newMessages[newMessages.length - 1];
-                    if (lastMessage.type === 'bot') {
+                    if (lastMessage && lastMessage.type === 'bot') {
                       lastMessage.coins_earned = data.data.coins_earned;
                       lastMessage.streaming = false;
                     }
@@ -300,7 +519,7 @@ const MentalHealthChat = () => {
                   
                 case 'error':
                   console.error('Streaming error:', data.data);
-                  setMessages(prev => [...prev, {
+                  setSafeMessages(prev => [...prev, {
                     type: 'system',
                     content: 'Sorry, I encountered an error. Please try again.',
                     timestamp: new Date()
@@ -316,7 +535,7 @@ const MentalHealthChat = () => {
       
     } catch (error) {
       console.error('Error with streaming:', error);
-      setMessages(prev => [...prev, {
+      setSafeMessages(prev => [...prev, {
         type: 'system',
         content: 'Sorry, I encountered an error. Please try again.',
         timestamp: new Date()
@@ -326,6 +545,7 @@ const MentalHealthChat = () => {
       setIsStreaming(false);
       setThinkingMessage('');
       // Keep thinking history for sidebar
+      console.log('DEBUG: End of sendStreamingMessage, current messages count:', messages.length);
     }
   };
 
@@ -339,6 +559,9 @@ const MentalHealthChat = () => {
     const content = messageContent || inputMessage.trim();
     if (!content) return;
     
+    // Immediately show chat interface
+    setShowChatInterface(true);
+    
     setIsLoading(true);
     setInputMessage('');
     
@@ -348,7 +571,8 @@ const MentalHealthChat = () => {
       content: content,
       timestamp: new Date()
     };
-    setMessages(prev => [...prev, userMessage]);
+    setSafeMessages(prev => [...prev, userMessage]);
+    setHasStartedChatting(true); // Immediately mark that chatting has started
     
     try {
       const requestBody = {
@@ -370,16 +594,27 @@ const MentalHealthChat = () => {
         timestamp: new Date(),
         coins_earned: data.coins_earned || 0
       };
-      setMessages(prev => [...prev, botMessage]);
+      setSafeMessages(prev => [...prev, botMessage]);
       
       // Update current thread or set new thread
       if (!currentThread && data.thread_id) {
-        // Reload threads to get the new thread
-        await loadThreads();
-        // Find and set the new thread as current
-        const newThread = threads.find(t => t.id === data.thread_id);
-        if (newThread) {
-          setCurrentThread(newThread);
+        try {
+          // Reload threads to get the new thread
+          const threadsResponse = await authService.authenticatedFetch(`${API_URL}/mental-health/threads`);
+          const threadsData = await threadsResponse.json();
+          const updatedThreads = threadsData.threads || [];
+          setThreads(updatedThreads);
+          
+          // Find and set the new thread as current
+          const newThread = updatedThreads.find(t => t.id === data.thread_id);
+          if (newThread) {
+            // Set flag to prevent loadThreadMessages from being called immediately
+            setSkipLoadMessages(true);
+            setCurrentThread(newThread);
+            // Don't reload messages since we already have them locally
+          }
+        } catch (error) {
+          console.error('Error loading updated threads:', error);
         }
       }
       
@@ -412,7 +647,7 @@ const MentalHealthChat = () => {
       
     } catch (error) {
       console.error('Error sending message:', error);
-      setMessages(prev => [...prev, {
+      setSafeMessages(prev => [...prev, {
         type: 'system',
         content: 'Sorry, I encountered an error. Please try again.',
         timestamp: new Date()
@@ -456,7 +691,7 @@ const MentalHealthChat = () => {
       // If this was the current thread, clear it
       if (currentThread?.id === threadId) {
         setCurrentThread(null);
-        setMessages([{
+        setSafeMessages([{
           type: 'system',
           content: 'Welcome to ZenHeaven Mental Health Support. How are you feeling today?',
           timestamp: new Date(),
@@ -516,21 +751,67 @@ const MentalHealthChat = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-b from-indigo-50 to-white">
+    <div className={`flex flex-col min-h-screen transition-colors duration-300 ${
+      darkMode 
+        ? 'bg-gradient-to-b from-gray-900 to-gray-800 text-white' 
+        : 'bg-gradient-to-b from-indigo-50 to-white text-gray-900'
+    } ${fontSize === 'large' ? 'text-lg' : fontSize === 'small' ? 'text-sm' : 'text-base'}`}>
+      
+      {/* Wellness Reminder Banner */}
+      {showWellnessReminders && (
+        <div className={`${darkMode ? 'bg-indigo-900' : 'bg-indigo-50'} border-b px-4 py-2`}>
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Heart className="h-4 w-4 text-indigo-600" />
+              <span className={`text-sm ${darkMode ? 'text-indigo-200' : 'text-indigo-700'}`}>
+                {wellnessReminders[Math.floor(Math.random() * wellnessReminders.length)].text}
+              </span>
+            </div>
+            <button 
+              onClick={() => setShowWellnessReminders(false)}
+              className={`text-xs ${darkMode ? 'text-indigo-300 hover:text-indigo-200' : 'text-indigo-600 hover:text-indigo-800'}`}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
-      <header className="bg-white shadow-sm">
+      <header className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center">
+            <div className="flex items-center space-x-4">
               <MessageCircle className="h-8 w-8 text-indigo-600 mr-3" />
               <div>
-                <h1 className="text-2xl font-semibold text-indigo-900">Mental Health Support</h1>
+                <h1 className={`text-2xl font-semibold ${darkMode ? 'text-white' : 'text-indigo-900'}`}>
+                  Mental Health Support
+                </h1>
                 {currentThread && (
-                  <p className="text-sm text-indigo-600">{currentThread.title}</p>
+                  <p className={`text-sm ${darkMode ? 'text-indigo-300' : 'text-indigo-600'}`}>
+                    {currentThread.title}
+                  </p>
+                )}
+              </div>
+              
+              {/* Mood and Goal Indicators */}
+              <div className="flex items-center space-x-3">
+                {currentMood && (
+                  <div className={`flex items-center px-3 py-1 rounded-full ${darkMode ? 'bg-gray-700' : 'bg-indigo-100'}`}>
+                    <span className="mr-2">{currentMood.emoji}</span>
+                    <span className={`text-sm ${currentMood.color}`}>{currentMood.label}</span>
+                  </div>
+                )}
+                {sessionGoal && (
+                  <div className={`flex items-center px-3 py-1 rounded-full ${darkMode ? 'bg-gray-700' : 'bg-green-100'}`}>
+                    <Lightbulb className={`h-3 w-3 mr-1 ${darkMode ? 'text-green-400' : 'text-green-600'}`} />
+                    <span className={`text-xs ${darkMode ? 'text-green-400' : 'text-green-700'}`}>{sessionGoal}</span>
+                  </div>
                 )}
               </div>
             </div>
-            <div className="flex items-center space-x-3">
+            
+            <div className="flex items-center space-x-2">
               {/* Coins earned notification */}
               {coinsEarned > 0 && (
                 <div className="flex items-center bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full animate-bounce">
@@ -538,6 +819,47 @@ const MentalHealthChat = () => {
                   <span className="text-sm font-medium">+{coinsEarned} coins!</span>
                 </div>
               )}
+              
+              {/* Help Button */}
+              <button
+                onClick={() => setShowHelpModal(true)}
+                className={`p-2 rounded-full transition-colors ${
+                  darkMode 
+                    ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' 
+                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                }`}
+                title="Help & Tips"
+              >
+                <HelpCircle className="h-5 w-5" />
+              </button>
+
+              {/* Accessibility Toggle */}
+              <button
+                onClick={toggleAccessibilityMode}
+                className={`p-2 rounded-full transition-colors ${
+                  accessibilityMode 
+                    ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' 
+                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                }`}
+                title="Toggle accessibility mode"
+              >
+                <Shield className="h-5 w-5" />
+              </button>
+              
+              {/* Dark Mode Toggle */}
+              <button
+                onClick={toggleDarkMode}
+                className={`p-2 rounded-full transition-colors ${
+                  darkMode 
+                    ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' 
+                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                }`}
+                title="Toggle dark mode"
+              >
+                {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              </button>
+              
+              {/* Voice Toggle */}
               <button
                 onClick={() => setVoiceEnabled(!voiceEnabled)}
                 className={`p-2 rounded-full ${voiceEnabled ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-500'} hover:opacity-80 transition-colors`}
@@ -545,6 +867,8 @@ const MentalHealthChat = () => {
               >
                 {voiceEnabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
               </button>
+              
+              {/* Streaming Toggle */}
               <button
                 onClick={() => setStreamingEnabled(!streamingEnabled)}
                 className={`px-3 py-2 text-sm rounded-lg transition-colors ${
@@ -556,10 +880,11 @@ const MentalHealthChat = () => {
               >
                 {streamingEnabled ? '🔴 Live' : '⚫ Standard'}
               </button>
+              
+              {/* AI Mind Toggle */}
               <button
                 onClick={() => {
                   setShowThinkingSidebar(!showThinkingSidebar);
-                  // If opening AI Mind, close resources to prevent overlap
                   if (!showThinkingSidebar && showResources) {
                     setShowResources(false);
                   }
@@ -573,6 +898,8 @@ const MentalHealthChat = () => {
               >
                 🧠 AI Mind {showThinkingSidebar && <span className="ml-1 text-xs">●</span>}
               </button>
+              
+              {/* Sidebar Toggle */}
               <button
                 onClick={() => setShowSidebar(!showSidebar)}
                 className="px-4 py-2 text-sm bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-lg flex items-center transition-colors"
@@ -597,6 +924,83 @@ const MentalHealthChat = () => {
           </div>
         </div>
       </header>
+
+      {/* Quick Start Section - only show when no current thread */}
+      {!currentThread && (
+        <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} border-b px-4 py-6`}>
+          <div className="max-w-4xl mx-auto">
+            {/* Mood Check-in */}
+            {!currentMood && (
+              <div className="mb-6">
+                <h3 className={`text-lg font-medium mb-3 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                  How are you feeling today?
+                </h3>
+                <div className="flex flex-wrap gap-3">
+                  {moodOptions.map((mood) => (
+                    <button
+                      key={mood.value}
+                      onClick={() => handleMoodSelection(mood)}
+                      className={`flex items-center px-4 py-2 rounded-lg border-2 border-transparent hover:border-indigo-300 transition-colors ${
+                        darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-50 hover:bg-gray-100'
+                      }`}
+                    >
+                      <span className="text-xl mr-2">{mood.emoji}</span>
+                      <span className={`${mood.color} font-medium`}>{mood.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Session Goal Selection */}
+            {!sessionGoal && currentMood && (
+              <div className="mb-6">
+                <h3 className={`text-lg font-medium mb-3 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                  What would you like to focus on today?
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {sessionGoals.map((goal) => (
+                    <button
+                      key={goal}
+                      onClick={() => handleGoalSelection(goal)}
+                      className={`p-3 rounded-lg border-2 border-transparent hover:border-indigo-300 transition-colors text-center ${
+                        darkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-50 hover:bg-gray-100 text-gray-900'
+                      }`}
+                    >
+                      {goal}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Quick Actions */}
+            {showQuickActions && (
+              <div className="mb-6">
+                <h3 className={`text-lg font-medium mb-3 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                  Quick Support
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {quickActions.map((action, index) => (
+                    <button
+                      key={index}
+                      onClick={action.action}
+                      className={`flex flex-col items-center p-4 rounded-lg transition-colors ${
+                        darkMode 
+                          ? 'bg-indigo-800 hover:bg-indigo-700 text-white' 
+                          : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-900'
+                      }`}
+                    >
+                      <action.icon className="h-6 w-6 mb-2" />
+                      <span className="text-sm font-medium">{action.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         {/* Chat History Sidebar */}
@@ -728,46 +1132,102 @@ const MentalHealthChat = () => {
               className="flex-1 overflow-y-auto mb-4 px-1 min-h-0"
               style={{ scrollBehavior: 'smooth' }}
             >
-              <div className="space-y-4 min-h-full">
-              {messages.length === 0 ? (
+              <div className="space-y-4 min-h-full" key={`messages-${messages.length}-${messages.filter(m => m.type === 'user').length}`}>
+              {/* Debug info - remove in production */}
+              {process.env.NODE_ENV === 'development' && (
+                <div className="text-xs text-gray-400 p-2 bg-gray-100 rounded">
+                  Debug: currentThread={currentThread?.id}, messages.length={messages.length}, 
+                  messageTypes={messages.map(m => m.type).join(',')},
+                  hasStartedChatting={hasStartedChatting},
+                  hasUserMessages={messages.some(msg => msg.type === 'user')},
+                  userMessageCount={messages.filter(m => m.type === 'user').length},
+                  isStreaming={isStreaming},
+                  isLoading={isLoading},
+                  showChatInterface={showChatInterface},
+                  showEmpty={!showChatInterface && messages.filter(m => m.type === 'user').length === 0},
+                  renderKey={`messages-${messages.length}-${messages.filter(m => m.type === 'user').length}`}
+                </div>
+              )}
+              
+              {!showChatInterface && messages.filter(m => m.type === 'user').length === 0 ? (
                 <div className="text-center py-8">
                   <MessageCircle className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                  <h3 className="text-lg font-medium text-gray-800 mb-2">Start a conversation</h3>
-                  <p className="text-gray-500 mb-6">
+                  <h3 className={`text-lg font-medium mb-2 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                    Start a conversation
+                  </h3>
+                  <p className={`mb-6 ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>
                     Share what's on your mind. I'm here to listen and provide support.
                   </p>
                   
-                  {/* Suggested questions */}
-                  <div className="max-w-2xl mx-auto">
-                    <p className="text-sm font-medium text-gray-600 mb-3">Try asking about:</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {suggestedQuestions.slice(0, 4).map((question, index) => (
-                        <button
-                          key={index}
-                          onClick={() => sendMessage(question)}
-                          className="p-3 text-left bg-white border border-gray-200 rounded-lg hover:border-indigo-300 hover:bg-indigo-50 transition-colors"
-                        >
-                          <span className="text-sm text-gray-700">{question}</span>
-                        </button>
+                  {/* Only show suggested questions if no current thread */}
+                  {!currentThread && (
+                    <>
+                      {/* Categorized Suggested questions */}
+                      <div className="max-w-3xl mx-auto">
+                        <p className={`text-sm font-medium mb-4 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                          Choose a topic to get started:
+                        </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {Object.entries(suggestedQuestions).map(([category, questions]) => (
+                        <div key={category} className={`p-4 rounded-lg border ${
+                          darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+                        }`}>
+                          <h4 className={`text-sm font-semibold mb-3 capitalize ${
+                            darkMode ? 'text-gray-200' : 'text-gray-800'
+                          }`}>
+                            {category}
+                          </h4>
+                          <div className="space-y-2">
+                            {questions.slice(0, 2).map((question, index) => (
+                              <button
+                                key={index}
+                                onClick={() => sendStreamingMessage(question)}
+                                className={`w-full text-left p-2 text-xs rounded transition-colors ${
+                                  darkMode 
+                                    ? 'hover:bg-gray-700 text-gray-300 hover:text-white' 
+                                    : 'hover:bg-indigo-50 text-gray-600 hover:text-indigo-700'
+                                }`}
+                              >
+                                {question}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       ))}
                     </div>
                   </div>
+                    </>
+                  )}
                 </div>
               ) : (
-                messages.map((message, index) => (
-                  <div key={index} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                messages.filter(message => message && message.type).map((message, index) => (
+                  <div key={index} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'} group`}>
                     <div 
-                      className={`max-w-lg rounded-2xl px-5 py-4 shadow-sm ${
+                      className={`max-w-lg rounded-2xl px-5 py-4 shadow-sm transition-all duration-200 ${
                         message.type === 'user' 
-                          ? 'bg-indigo-600 text-white' 
+                          ? `${darkMode ? 'bg-indigo-700' : 'bg-indigo-600'} text-white` 
                           : message.type === 'system'
-                            ? 'bg-gray-100 text-gray-700 border border-gray-200'
-                            : 'bg-white text-gray-800 border border-gray-200'
-                      }`}
+                            ? `${darkMode ? 'bg-gray-700 text-gray-200' : 'bg-gray-100 text-gray-700'} border ${darkMode ? 'border-gray-600' : 'border-gray-200'}`
+                            : `${darkMode ? 'bg-gray-800 text-gray-200 border-gray-700' : 'bg-white text-gray-800 border-gray-200'} border`
+                      } ${accessibilityMode ? 'text-lg leading-relaxed' : ''}`}
                     >
-                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                      {/* Message type indicator for accessibility */}
+                      {accessibilityMode && (
+                        <div className="flex items-center mb-2 text-xs opacity-75">
+                          {message.type === 'user' ? (
+                            <><User className="h-3 w-3 mr-1" /> You</>
+                          ) : (
+                            <><Bot className="h-3 w-3 mr-1" /> AI Assistant</>
+                          )}
+                        </div>
+                      )}
+                      
+                      <p className={`whitespace-pre-wrap ${fontSize === 'large' ? 'text-lg' : fontSize === 'small' ? 'text-sm' : 'text-base'}`}>
+                        {message.content || ''}
+                      </p>
+                      
                       {message.streaming && (
-                        <div className="flex items-center mt-1">
+                        <div className="flex items-center mt-2">
                           <div className="flex space-x-1">
                             <div className="w-1 h-1 bg-blue-600 rounded-full animate-bounce"></div>
                             <div className="w-1 h-1 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
@@ -776,15 +1236,57 @@ const MentalHealthChat = () => {
                           <span className="text-xs text-blue-600 ml-2">streaming...</span>
                         </div>
                       )}
-                      {message.coins_earned > 0 && (
+                      
+                      {message.coins_earned && message.coins_earned > 0 && (
                         <div className="flex items-center mt-2 text-xs text-yellow-600">
                           <Award className="h-3 w-3 mr-1" />
                           +{message.coins_earned} coins earned
                         </div>
                       )}
-                      <span className="text-xs opacity-70 mt-2 block">
-                        {formatTime(message.timestamp)}
-                      </span>
+                      
+                      {/* Message actions */}
+                      <div className="flex items-center justify-between mt-2">
+                        <span className={`text-xs opacity-70 ${fontSize === 'large' ? 'text-sm' : ''}`}>
+                          {message.timestamp ? formatTime(message.timestamp) : ''}
+                        </span>
+                        
+                        {/* Reaction buttons for bot messages */}
+                        {message.type === 'bot' && (
+                          <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => handleMessageReaction(index, 'helpful')}
+                              className={`p-1 text-xs rounded transition-colors ${
+                                messageReactions[index] === 'helpful'
+                                  ? 'bg-green-100 text-green-700'
+                                  : 'hover:bg-gray-100 text-gray-500'
+                              }`}
+                              title="Helpful"
+                            >
+                              👍
+                            </button>
+                            <button
+                              onClick={() => handleMessageReaction(index, 'not_helpful')}
+                              className={`p-1 text-xs rounded transition-colors ${
+                                messageReactions[index] === 'not_helpful'
+                                  ? 'bg-red-100 text-red-700'
+                                  : 'hover:bg-gray-100 text-gray-500'
+                              }`}
+                              title="Not helpful"
+                            >
+                              👎
+                            </button>
+                            {voiceEnabled && (
+                              <button
+                                onClick={() => message.content && speakText(message.content)}
+                                className="p-1 text-xs rounded hover:bg-gray-100 text-gray-500 transition-colors"
+                                title="Read aloud"
+                              >
+                                <Volume2 className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))
@@ -809,57 +1311,123 @@ const MentalHealthChat = () => {
             </div>
           </div>
 
-          {/* Input Form */}
-          <form onSubmit={(e) => { e.preventDefault(); sendMessage(); }} className="bg-white border-t border-gray-200 p-4">
-            <div className="flex items-end space-x-3 max-w-4xl mx-auto">
-              {/* Voice input button */}
-              <button
-                type="button"
-                onClick={toggleVoiceInput}
-                className={`p-3 rounded-full transition-colors ${
-                  isListening
-                    ? 'bg-red-600 text-white'
-                    : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
-                }`}
-              >
-                {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-              </button>
-
-              {/* Text input */}
-              <div className="flex-1 relative">
-                <textarea
-                  ref={inputRef}
-                  value={inputMessage}
-                  onChange={(e) => setInputMessage(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Share what's on your mind..."
-                  className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
-                  rows="1"
-                  style={{ minHeight: '48px', maxHeight: '120px' }}
-                />
+          {/* Enhanced Input Form */}
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'} p-4`}>
+            {/* Quick suggestion pills */}
+            {currentThread && messages.length > 0 && (
+              <div className="mb-3 overflow-x-auto">
+                <div className="flex space-x-2 pb-2">
+                  {Object.values(suggestedQuestions).flat().slice(0, 3).map((question, index) => (
+                    <button
+                      key={index}
+                      onClick={() => sendStreamingMessage(question)}
+                      className={`flex-shrink-0 px-3 py-1 text-xs rounded-full transition-colors ${
+                        darkMode 
+                          ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' 
+                          : 'bg-gray-100 hover:bg-indigo-50 text-gray-600 hover:text-indigo-700'
+                      }`}
+                    >
+                      {question}
+                    </button>
+                  ))}
+                </div>
               </div>
+            )}
 
-              {/* Send button */}
-              <button
-                type="submit"
-                disabled={!inputMessage.trim() || isLoading}
-                className="p-3 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <Send className="h-5 w-5" />
-              </button>
-            </div>
-            
-            <div className="mt-2 text-xs text-gray-500 text-center max-w-4xl mx-auto">
-              {streamingEnabled ? (
-                <span className="flex items-center justify-center space-x-1">
-                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                  <span>Live streaming enabled - Watch AI think in real-time!</span>
-                </span>
-              ) : (
-                <span>This is a supportive AI assistant. For emergencies, contact 911 or your local crisis helpline.</span>
-              )}
-            </div>
-          </form>
+            <form onSubmit={(e) => { e.preventDefault(); sendMessage(); }} className="space-y-3">
+              <div className="flex items-end space-x-3 max-w-4xl mx-auto">
+                {/* Voice input button */}
+                <button
+                  type="button"
+                  onClick={toggleVoiceInput}
+                  disabled={!speechRecognition}
+                  className={`p-3 rounded-full transition-colors ${
+                    isListening
+                      ? 'bg-red-600 text-white animate-pulse'
+                      : !speechRecognition
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : `${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`
+                  }`}
+                  title={isListening ? "Stop listening" : !speechRecognition ? "Voice not supported" : "Start voice input"}
+                >
+                  {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                </button>
+
+                {/* Enhanced text input */}
+                <div className="flex-1 relative">
+                  <textarea
+                    ref={inputRef}
+                    value={inputMessage}
+                    onChange={(e) => setInputMessage(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder={
+                      isListening 
+                        ? "Listening... speak now" 
+                        : currentMood 
+                          ? `I'm here to help with ${currentMood.label.toLowerCase()} feelings...`
+                          : "Share what's on your mind..."
+                    }
+                    className={`w-full px-4 py-3 border rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none transition-colors ${
+                      darkMode 
+                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                    } ${fontSize === 'large' ? 'text-lg' : fontSize === 'small' ? 'text-sm' : 'text-base'}`}
+                    rows="1"
+                    style={{ minHeight: '48px', maxHeight: '120px' }}
+                    disabled={isLoading || isListening}
+                  />
+                  
+                  {/* Character count */}
+                  {inputMessage.length > 100 && (
+                    <div className={`absolute bottom-1 right-3 text-xs ${
+                      inputMessage.length > 500 ? 'text-red-500' : darkMode ? 'text-gray-400' : 'text-gray-500'
+                    }`}>
+                      {inputMessage.length}/1000
+                    </div>
+                  )}
+                </div>
+
+                {/* Send button */}
+                <button
+                  type="submit"
+                  disabled={!inputMessage.trim() || isLoading || isListening}
+                  className={`p-3 rounded-full transition-colors ${
+                    !inputMessage.trim() || isLoading || isListening
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                  }`}
+                  title="Send message"
+                >
+                  <Send className="h-5 w-5" />
+                </button>
+              </div>
+              
+              {/* Status and tips */}
+              <div className="text-xs text-center max-w-4xl mx-auto space-y-1">
+                {isListening ? (
+                  <div className={`flex items-center justify-center space-x-2 ${darkMode ? 'text-red-400' : 'text-red-600'}`}>
+                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                    <span>Listening... Say something or click the mic to stop</span>
+                  </div>
+                ) : streamingEnabled ? (
+                  <div className={`flex items-center justify-center space-x-2 ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span>Live streaming enabled - Watch AI think in real-time!</span>
+                  </div>
+                ) : (
+                  <div className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    <span>This is a supportive AI assistant. For emergencies, contact 911 or your local crisis helpline.</span>
+                  </div>
+                )}
+                
+                {accessibilityMode && (
+                  <div className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    <span>Accessibility mode enabled. Press Tab to navigate, Space to select.</span>
+                  </div>
+                )}
+              </div>
+            </form>
+          </div>
         </main>
 
         {/* AI Thinking Sidebar */}
@@ -1165,6 +1733,217 @@ const MentalHealthChat = () => {
                   <p className="text-red-700 font-semibold">{resource.contact}</p>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Emergency Support Floating Button */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <button
+          onClick={() => setShowEmergencyResources(!showEmergencyResources)}
+          className="bg-red-600 hover:bg-red-700 text-white p-4 rounded-full shadow-lg transition-colors"
+          title="Emergency Support"
+        >
+          <Phone className="h-6 w-6" />
+        </button>
+        
+        {showEmergencyResources && (
+          <div className={`absolute bottom-16 right-0 w-80 p-4 rounded-lg shadow-xl border ${
+            darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+          }`}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                Emergency Support
+              </h3>
+              <button 
+                onClick={() => setShowEmergencyResources(false)}
+                className={`text-gray-500 hover:text-gray-700`}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div className="p-3 bg-red-50 rounded border border-red-200">
+                <div className="flex items-center mb-2">
+                  <AlertTriangle className="h-4 w-4 text-red-600 mr-2" />
+                  <span className="font-medium text-red-800">Crisis Hotline</span>
+                </div>
+                <p className="text-red-700 font-semibold">988 (Suicide & Crisis Lifeline)</p>
+              </div>
+              <div className="p-3 bg-blue-50 rounded border border-blue-200">
+                <div className="flex items-center mb-2">
+                  <Phone className="h-4 w-4 text-blue-600 mr-2" />
+                  <span className="font-medium text-blue-800">Emergency Services</span>
+                </div>
+                <p className="text-blue-700 font-semibold">911</p>
+              </div>
+              <div className="p-3 bg-green-50 rounded border border-green-200">
+                <div className="flex items-center mb-2">
+                  <Heart className="h-4 w-4 text-green-600 mr-2" />
+                  <span className="font-medium text-green-800">Text Support</span>
+                </div>
+                <p className="text-green-700 font-semibold">Text HOME to 741741</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Progress Tracker */}
+      {showProgressTracker && currentThread && messages.length > 5 && (
+        <div className="fixed bottom-6 left-6 z-40">
+          <div className={`p-3 rounded-lg shadow-lg border ${
+            darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+          }`}>
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2">
+                <Clock className={`h-4 w-4 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`} />
+                <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  {Math.floor(messages.length / 2)} exchanges
+                </span>
+              </div>
+              {currentMood && (
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm">{currentMood.emoji}</span>
+                  <span className={`text-xs ${currentMood.color}`}>
+                    {currentMood.label}
+                  </span>
+                </div>
+              )}
+              <button 
+                onClick={() => setShowProgressTracker(false)}
+                className={`text-xs ${darkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Voice Status Indicators */}
+      {isListening && (
+        <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-red-600 text-white px-6 py-3 rounded-full shadow-lg flex items-center space-x-2 z-50">
+          <Mic className="h-5 w-5 animate-pulse" />
+          <span>Listening...</span>
+          <button 
+            onClick={toggleVoiceInput}
+            className="ml-2 bg-white bg-opacity-20 rounded-full p-1"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      )}
+
+      {isSpeaking && (
+        <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-indigo-600 text-white px-6 py-3 rounded-full shadow-lg flex items-center space-x-2 z-50">
+          <Volume2 className="h-5 w-5 animate-pulse" />
+          <span>Speaking...</span>
+          <button 
+            onClick={stopSpeaking}
+            className="ml-2 bg-white bg-opacity-20 rounded-full p-1"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      )}
+
+      {/* Help Modal */}
+      {showHelpModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className={`max-w-2xl w-full max-h-[80vh] overflow-y-auto rounded-lg shadow-xl ${
+            darkMode ? 'bg-gray-800' : 'bg-white'
+          }`}>
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className={`text-2xl font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                  {isFirstVisit ? 'Welcome to ZenHeaven Mental Health Support!' : 'Help & Tips'}
+                </h2>
+                <button 
+                  onClick={() => setShowHelpModal(false)}
+                  className={`text-gray-500 hover:text-gray-700`}
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                {isFirstVisit && (
+                  <div className={`p-4 rounded-lg ${darkMode ? 'bg-indigo-900' : 'bg-indigo-50'}`}>
+                    <h3 className={`font-semibold mb-2 ${darkMode ? 'text-indigo-300' : 'text-indigo-800'}`}>
+                      🌟 Get Started
+                    </h3>
+                    <p className={`text-sm ${darkMode ? 'text-indigo-200' : 'text-indigo-700'}`}>
+                      This is your safe space for mental health support. You can share your feelings, get personalized advice, and access helpful resources.
+                    </p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className={`p-4 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+                    <h3 className={`font-semibold mb-2 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                      <Heart className="h-4 w-4 mr-2 text-red-500" />
+                      Mood Tracking
+                    </h3>
+                    <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                      Start by selecting your current mood. This helps personalize your experience.
+                    </p>
+                  </div>
+
+                  <div className={`p-4 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+                    <h3 className={`font-semibold mb-2 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                      <Mic className="h-4 w-4 mr-2 text-blue-500" />
+                      Voice Support
+                    </h3>
+                    <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                      Use voice input to speak naturally and hear AI responses read aloud.
+                    </p>
+                  </div>
+
+                  <div className={`p-4 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+                    <h3 className={`font-semibold mb-2 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                      <MessageCircle className="h-4 w-4 mr-2 text-green-500" />
+                      Chat History
+                    </h3>
+                    <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                      Your conversations are saved as threads. Create new ones or continue previous discussions.
+                    </p>
+                  </div>
+
+                  <div className={`p-4 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+                    <h3 className={`font-semibold mb-2 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                      <Shield className="h-4 w-4 mr-2 text-purple-500" />
+                      Privacy & Safety
+                    </h3>
+                    <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                      Your conversations are private. For emergencies, use the red emergency button.
+                    </p>
+                  </div>
+                </div>
+
+                <div className={`p-4 rounded-lg border-2 border-dashed ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
+                  <h3 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                    🎯 Quick Tips
+                  </h3>
+                  <ul className={`text-sm space-y-1 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                    <li>• Be honest about your feelings - this AI is here to help, not judge</li>
+                    <li>• Use the categorized questions to get started if you're unsure</li>
+                    <li>• Enable live streaming to see how the AI processes your concerns</li>
+                    <li>• Try voice input for a more natural conversation experience</li>
+                    <li>• Use dark mode and accessibility features for comfort</li>
+                  </ul>
+                </div>
+
+                <div className="flex justify-center">
+                  <button
+                    onClick={() => setShowHelpModal(false)}
+                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                  >
+                    {isFirstVisit ? "Let's Get Started!" : "Got it!"}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

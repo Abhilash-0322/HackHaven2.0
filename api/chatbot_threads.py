@@ -157,7 +157,7 @@ def get_llm(streaming: bool = False, callback_handler: Optional[StreamingCallbac
     
     return ChatGroq(
         temperature=0.7,
-        model_name="llama3-70b-8192",
+        model_name="openai/gpt-oss-120b",
         groq_api_key=groq_api_key,
         max_tokens=1000,
         streaming=streaming,
