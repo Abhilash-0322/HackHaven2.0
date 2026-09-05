@@ -3,21 +3,15 @@
 @tailwind utilities;
 
 @layer base {
-  html {
-    scroll-behavior: smooth;
-  }
-
-  body {
-    @apply bg-slate-50 text-slate-800 font-sans;
-  }
-
-  ::selection {
-    @apply bg-brand-200 text-brand-900;
-  }
+  html { @apply scroll-smooth antialiased; }
+  body { @apply bg-clinical-50 font-sans text-clinical-800; }
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+@layer components {
+  .clinical-card { @apply rounded-xl border border-clinical-200 bg-white p-6 shadow-clinical; }
+  .clinical-input { @apply w-full rounded-lg border border-clinical-300 bg-white px-4 py-2.5 text-sm text-clinical-800 placeholder:text-clinical-400 transition-colors focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20 disabled:cursor-not-allowed disabled:opacity-50; }
+  .clinical-btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-lg bg-accent-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent-700 focus:outline-none focus:ring-2 focus:ring-accent-500/30 disabled:cursor-not-allowed disabled:opacity-50; }
+  .clinical-btn-secondary { @apply inline-flex items-center justify-center gap-2 rounded-lg border border-clinical-300 bg-white px-4 py-2.5 text-sm font-medium text-clinical-700 transition-colors hover:bg-clinical-50 focus:outline-none focus:ring-2 focus:ring-accent-500/20 disabled:cursor-not-allowed disabled:opacity-50; }
+  .clinical-btn-ghost { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-clinical-600 transition-colors hover:bg-clinical-100 focus:outline-none focus:ring-2 focus:ring-accent-500/20 disabled:cursor-not-allowed disabled:opacity-50; }
+  .clinical-btn-danger { @apply inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/30 disabled:cursor-not-allowed disabled:opacity-50; }
 }

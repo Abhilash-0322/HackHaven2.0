@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BookOpen, Lightbulb, Plus, Trash2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import authService from '../services/authService';
-import { API_BASE_URL } from '../lib/api';
+import { journalApi } from '../lib/api';
 import Alert from '../components/ui/Alert';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
@@ -28,15 +27,12 @@ export default function Journal() {
     setLoading(true);
     setError('');
     try {
-      const [entriesRes, promptsRes, insightsRes] = await Promise.all([
-        authService.authenticatedFetch(`${API_BASE_URL}/journal/entries`),
-        authService.authenticatedFetch(`${API_BASE_URL}/journal/prompts`),
-        authService.authenticatedFetch(`${API_BASE_URL}/journal/insights`),
+      const [entriesData, promptsData, insightsData] = await Promise.all([
+        journalApi.getEntries(), journalApi.getPrompts(), journalApi.getInsights(),
       ]);
-
-      setEntries(await entriesRes.json());
-      setPrompts(await promptsRes.json());
-      setInsights(await insightsRes.json());
+      setEntries(Array.isArray(entriesData) ? entriesData : []);
+      setPrompts(Array.isArray(promptsData) ? promptsData : []);
+      setInsights(insightsData);
     } catch {
       setError('Failed to load journal data');
     } finally {
@@ -56,13 +52,7 @@ export default function Journal() {
     setAnalyzing(true);
     setError('');
     try {
-      const response = await fetch(`${API_BASE_URL}/journal/analyze-mood`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.detail || 'Analysis failed');
+      const data = await journalApi.analyzeMood(content);
       setMoodAnalysis(data);
     } catch (err) {
       setError(err.message);
@@ -77,17 +67,7 @@ export default function Journal() {
     setSubmitting(true);
     setError('');
     try {
-      const response = await authService.authenticatedFetch(`${API_BASE_URL}/journal/entries`, {
-        method: 'POST',
-        body: JSON.stringify({
-          content,
-          mood: moodAnalysis?.mood,
-        }),
-      });
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.detail || 'Failed to save entry');
-      }
+      await journalApi.createEntry({ content, mood: moodAnalysis?.mood });
       setContent('');
       setMoodAnalysis(null);
       setShowForm(false);
@@ -103,9 +83,7 @@ export default function Journal() {
   const deleteEntry = async (id) => {
     if (!window.confirm('Delete this entry?')) return;
     try {
-      await authService.authenticatedFetch(`${API_BASE_URL}/journal/entries/${id}`, {
-        method: 'DELETE',
-      });
+      await journalApi.deleteEntry(id);
       await fetchData();
     } catch {
       setError('Failed to delete entry');

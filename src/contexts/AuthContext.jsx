@@ -1,13 +1,11 @@
-import { createContext, useContext, useEffect, useState } from 'react';
-import authService from '../services/authService';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { authApi, clearToken, coinsApi, getToken, setToken } from '../lib/api';
 
 const AuthContext = createContext(null);
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 }
 
@@ -17,26 +15,41 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [calmCoins, setCalmCoins] = useState(0);
 
+  const refreshCoins = useCallback(async () => {
+    try {
+      const data = await coinsApi.getBalance();
+      setCalmCoins(data.balance ?? 0);
+      return data.balance ?? 0;
+    } catch {
+      return 0;
+    }
+  }, []);
+
   useEffect(() => {
     async function initAuth() {
       try {
-        if (authService.isAuthenticated()) {
-          const profile = await authService.getProfile();
+        if (getToken()) {
+          const profile = await authApi.me();
           setUser(profile);
           setIsAuthenticated(true);
-          setCalmCoins(await authService.getCalmCoins());
+          setCalmCoins(profile.calm_coins ?? 0);
+          await refreshCoins();
         }
       } catch {
-        authService.logout();
+        clearToken();
+        setUser(null);
+        setIsAuthenticated(false);
+        setCalmCoins(0);
       } finally {
         setLoading(false);
       }
     }
     initAuth();
-  }, []);
+  }, [refreshCoins]);
 
   const login = async (credentials) => {
-    const data = await authService.login(credentials);
+    const data = await authApi.login(credentials);
+    setToken(data.access_token);
     setUser(data.user);
     setIsAuthenticated(true);
     setCalmCoins(data.user.calm_coins ?? 0);
@@ -44,7 +57,8 @@ export function AuthProvider({ children }) {
   };
 
   const register = async (userData) => {
-    const data = await authService.register(userData);
+    const data = await authApi.register(userData);
+    setToken(data.access_token);
     setUser(data.user);
     setIsAuthenticated(true);
     setCalmCoins(data.user.calm_coins ?? 0);
@@ -52,21 +66,14 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
-    authService.logout();
+    clearToken();
     setUser(null);
     setIsAuthenticated(false);
     setCalmCoins(0);
   };
 
-  const updateCalmCoins = async () => {
-    const coins = await authService.getCalmCoins();
-    setCalmCoins(coins);
-  };
-
   return (
-    <AuthContext.Provider
-      value={{ user, isAuthenticated, loading, calmCoins, login, register, logout, updateCalmCoins }}
-    >
+    <AuthContext.Provider value={{ user, isAuthenticated, loading, calmCoins, login, register, logout, updateCalmCoins: refreshCoins }}>
       {children}
     </AuthContext.Provider>
   );

@@ -10,8 +10,7 @@ import {
   User,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import authService from '../services/authService';
-import { API_BASE_URL } from '../lib/api';
+import { chatApi, streamChat } from '../lib/api';
 import Alert from '../components/ui/Alert';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
@@ -54,8 +53,7 @@ export default function Chat() {
   const loadThreads = async () => {
     setLoadingThreads(true);
     try {
-      const response = await authService.authenticatedFetch(`${API_BASE_URL}/mental-health/threads`);
-      const data = await response.json();
+      const data = await chatApi.getThreads();
       setThreads(data.threads || []);
     } catch {
       setError('Failed to load conversations');
@@ -66,8 +64,7 @@ export default function Chat() {
 
   const loadThreadMessages = async (threadId) => {
     try {
-      const response = await authService.authenticatedFetch(`${API_BASE_URL}/mental-health/threads/${threadId}`);
-      const data = await response.json();
+      const data = await chatApi.getThread(threadId);
       setMessages(
         (data.messages || []).map((msg) => ({
           id: msg.id,
@@ -109,9 +106,7 @@ export default function Chat() {
     event.stopPropagation();
     if (!window.confirm('Delete this conversation?')) return;
     try {
-      await authService.authenticatedFetch(`${API_BASE_URL}/mental-health/threads/${threadId}`, {
-        method: 'DELETE',
-      });
+      await chatApi.deleteThread(threadId);
       if (currentThreadId === threadId) {
         startNewThread();
       }
@@ -149,84 +144,25 @@ export default function Chat() {
     setMessages((prev) => [...prev, assistantPlaceholder]);
 
     try {
-      const response = await authService.authenticatedFetch(`${API_BASE_URL}/mental-health/chat/stream`, {
-        method: 'POST',
-        body: JSON.stringify({
-          message: content,
-          thread_id: currentThreadId,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Chat request failed');
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const chunks = buffer.split('\n\n');
-        buffer = chunks.pop() || '';
-
-        for (const chunk of chunks) {
-          if (!chunk.startsWith('data: ')) continue;
-          try {
-            const event = JSON.parse(chunk.slice(6));
-            switch (event.type) {
-              case 'thread_id':
-                if (!currentThreadId) {
-                  await loadThreads();
-                  setCurrentThreadId(event.data);
-                }
-                break;
-              case 'thinking':
-                setThinking(event.data);
-                break;
-              case 'response_start':
-                setThinking('');
-                break;
-              case 'token':
-                setMessages((prev) => {
-                  const next = [...prev];
-                  const last = next[next.length - 1];
-                  if (last?.role === 'assistant') {
-                    next[next.length - 1] = { ...last, content: last.content + event.data };
-                  }
-                  return next;
-                });
-                break;
-              case 'complete':
-                setMessages((prev) => {
-                  const next = [...prev];
-                  const last = next[next.length - 1];
-                  if (last?.role === 'assistant') {
-                    next[next.length - 1] = { ...last, streaming: false };
-                  }
-                  return next;
-                });
-                if (event.data?.emergency_contact && event.data?.resources) {
-                  setCrisisResources(event.data.resources);
-                }
-                if (event.data?.coins_earned > 0) {
-                  await updateCalmCoins();
-                }
-                break;
-              case 'error':
-                throw new Error(event.data || 'Streaming error');
-              default:
-                break;
-            }
-          } catch (parseError) {
-            if (parseError.message !== 'Streaming error') continue;
-            throw parseError;
-          }
+      await streamChat(content, currentThreadId, async (event) => {
+        switch (event.type) {
+          case 'thread_id':
+            if (!currentThreadId) { await loadThreads(); setCurrentThreadId(event.data); }
+            break;
+          case 'thinking': setThinking(event.data); break;
+          case 'response_start': setThinking(''); break;
+          case 'token':
+            setMessages((prev) => { const next = [...prev]; const last = next[next.length - 1]; if (last?.role === 'assistant') next[next.length - 1] = { ...last, content: last.content + event.data }; return next; });
+            break;
+          case 'complete':
+            setMessages((prev) => { const next = [...prev]; const last = next[next.length - 1]; if (last?.role === 'assistant') next[next.length - 1] = { ...last, streaming: false }; return next; });
+            if (event.data?.emergency_contact && event.data?.resources) setCrisisResources(event.data.resources);
+            if (event.data?.coins_earned > 0) await updateCalmCoins();
+            break;
+          case 'error': throw new Error(event.data || 'Streaming error');
+          default: break;
         }
-      }
+      });
     } catch (err) {
       setError(err.message || 'Failed to send message');
       setMessages((prev) => prev.filter((msg) => !msg.streaming));
