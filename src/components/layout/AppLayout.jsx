@@ -2,16 +2,14 @@ import { Outlet } from 'react-router-dom';
 import Navbar from './Navbar';
 import Footer from './Footer';
 
-const Layout = () => {
+export default function AppLayout() {
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
+    <div className="flex min-h-screen flex-col">
       <Navbar />
-      <main className="flex-grow">
+      <main className="flex-1">
         <Outlet />
       </main>
       <Footer />
     </div>
   );
-};
-
-export default Layout;
+}

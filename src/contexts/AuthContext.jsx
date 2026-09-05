@@ -1,67 +1,54 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import authService from '../services/authService';
 
-const AuthContext = createContext();
+const AuthContext = createContext(null);
 
-export const useAuth = () => {
+export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error('useAuth must be used within AuthProvider');
   }
   return context;
-};
+}
 
-export const AuthProvider = ({ children }) => {
+export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [calmCoins, setCalmCoins] = useState(0);
 
   useEffect(() => {
-    const initAuth = async () => {
+    async function initAuth() {
       try {
         if (authService.isAuthenticated()) {
-          const userProfile = await authService.getProfile();
-          setUser(userProfile);
+          const profile = await authService.getProfile();
+          setUser(profile);
           setIsAuthenticated(true);
-          
-          // Fetch calm coins
-          const coins = await authService.getCalmCoins();
-          setCalmCoins(coins);
+          setCalmCoins(await authService.getCalmCoins());
         }
-      } catch (error) {
-        console.error('Auth initialization failed:', error);
+      } catch {
         authService.logout();
       } finally {
         setLoading(false);
       }
-    };
-
+    }
     initAuth();
   }, []);
 
   const login = async (credentials) => {
-    try {
-      const data = await authService.login(credentials);
-      setUser(data.user);
-      setIsAuthenticated(true);
-      setCalmCoins(data.user.calm_coins || 0);
-      return data;
-    } catch (error) {
-      throw error;
-    }
+    const data = await authService.login(credentials);
+    setUser(data.user);
+    setIsAuthenticated(true);
+    setCalmCoins(data.user.calm_coins ?? 0);
+    return data;
   };
 
   const register = async (userData) => {
-    try {
-      const data = await authService.register(userData);
-      setUser(data.user);
-      setIsAuthenticated(true);
-      setCalmCoins(data.user.calm_coins || 0);
-      return data;
-    } catch (error) {
-      throw error;
-    }
+    const data = await authService.register(userData);
+    setUser(data.user);
+    setIsAuthenticated(true);
+    setCalmCoins(data.user.calm_coins ?? 0);
+    return data;
   };
 
   const logout = () => {
@@ -72,28 +59,15 @@ export const AuthProvider = ({ children }) => {
   };
 
   const updateCalmCoins = async () => {
-    try {
-      const coins = await authService.getCalmCoins();
-      setCalmCoins(coins);
-    } catch (error) {
-      console.error('Failed to update calm coins:', error);
-    }
-  };
-
-  const value = {
-    user,
-    isAuthenticated,
-    loading,
-    calmCoins,
-    login,
-    register,
-    logout,
-    updateCalmCoins,
+    const coins = await authService.getCalmCoins();
+    setCalmCoins(coins);
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider
+      value={{ user, isAuthenticated, loading, calmCoins, login, register, logout, updateCalmCoins }}
+    >
       {children}
     </AuthContext.Provider>
   );
-};
+}

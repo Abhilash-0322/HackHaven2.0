@@ -1,5 +1,4 @@
-// Authentication service for handling API calls
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+import { API_BASE_URL, authHeaders, parseJsonResponse } from '../lib/api';
 
 class AuthService {
   constructor() {
@@ -8,51 +7,27 @@ class AuthService {
   }
 
   async register(userData) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userData),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Registration failed');
-      }
-
-      const data = await response.json();
-      this.setToken(data.access_token);
-      this.setUser(data.user);
-      return data;
-    } catch (error) {
-      throw error;
-    }
+    const response = await fetch(`${API_BASE_URL}/auth/register`, {
+      method: 'POST',
+      headers: authHeaders(null),
+      body: JSON.stringify(userData),
+    });
+    const data = await parseJsonResponse(response);
+    this.setToken(data.access_token);
+    this.setUser(data.user);
+    return data;
   }
 
   async login(credentials) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(credentials),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Login failed');
-      }
-
-      const data = await response.json();
-      this.setToken(data.access_token);
-      this.setUser(data.user);
-      return data;
-    } catch (error) {
-      throw error;
-    }
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: authHeaders(null),
+      body: JSON.stringify(credentials),
+    });
+    const data = await parseJsonResponse(response);
+    this.setToken(data.access_token);
+    this.setUser(data.user);
+    return data;
   }
 
   logout() {
@@ -81,64 +56,33 @@ class AuthService {
   }
 
   isAuthenticated() {
-    return !!this.token;
+    return Boolean(this.token);
   }
 
   async getProfile() {
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth/me`, {
-        headers: {
-          'Authorization': `Bearer ${this.token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to get profile');
-      }
-
-      const user = await response.json();
-      this.setUser(user);
-      return user;
-    } catch (error) {
-      throw error;
-    }
+    const response = await fetch(`${API_BASE_URL}/auth/me`, {
+      headers: authHeaders(this.token),
+    });
+    const user = await parseJsonResponse(response);
+    this.setUser(user);
+    return user;
   }
 
   async getCalmCoins() {
     try {
       const response = await fetch(`${API_BASE_URL}/coins/balance`, {
-        headers: {
-          'Authorization': `Bearer ${this.token}`,
-        },
+        headers: authHeaders(this.token),
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to get calm coins');
-      }
-
-      const data = await response.json();
-      return data.balance;
-    } catch (error) {
-      console.error('Error fetching calm coins:', error);
+      const data = await parseJsonResponse(response);
+      return data.balance ?? 0;
+    } catch {
       return 0;
     }
   }
 
-  // Utility method to make authenticated requests
   async authenticatedFetch(url, options = {}) {
-    const headers = {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    };
-
-    if (this.token) {
-      headers.Authorization = `Bearer ${this.token}`;
-    }
-
-    return fetch(url, {
-      ...options,
-      headers,
-    });
+    const headers = authHeaders(this.token, options.headers);
+    return fetch(url, { ...options, headers });
   }
 }
 
