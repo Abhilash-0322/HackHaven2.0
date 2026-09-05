@@ -139,3 +139,6 @@ OPENAI_API_KEY=your-openai-key
 This project is for educational and demonstration purposes as part of a hackathon. For professional mental health support, users should consult certified professionals.
 
 ---
+## Frontend — Paper Craft
+
+This Vite frontend runs on port 6124 and connects to the FastAPI API through `VITE_API_URL`.
