@@ -1,99 +1,66 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import authService from '../services/authService';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { authApi, setToken, clearToken, getToken, getStoredUser, setStoredUser } from '../lib/api';
 
-const AuthContext = createContext();
+const AuthContext = createContext(null);
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
-
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+export function AuthProvider({ children }) {
+  const [user, setUser] = useState(getStoredUser);
   const [loading, setLoading] = useState(true);
-  const [calmCoins, setCalmCoins] = useState(0);
 
-  useEffect(() => {
-    const initAuth = async () => {
-      try {
-        if (authService.isAuthenticated()) {
-          const userProfile = await authService.getProfile();
-          setUser(userProfile);
-          setIsAuthenticated(true);
-          
-          // Fetch calm coins
-          const coins = await authService.getCalmCoins();
-          setCalmCoins(coins);
-        }
-      } catch (error) {
-        console.error('Auth initialization failed:', error);
-        authService.logout();
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    initAuth();
+  const refreshUser = useCallback(async () => {
+    if (!getToken()) { setUser(null); setLoading(false); return null; }
+    try {
+      const profile = await authApi.me();
+      setUser(profile);
+      setStoredUser(profile);
+      return profile;
+    } catch {
+      clearToken();
+      setUser(null);
+      return null;
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
+  useEffect(() => { refreshUser(); }, [refreshUser]);
+
   const login = async (credentials) => {
-    try {
-      const data = await authService.login(credentials);
-      setUser(data.user);
-      setIsAuthenticated(true);
-      setCalmCoins(data.user.calm_coins || 0);
-      return data;
-    } catch (error) {
-      throw error;
-    }
+    const data = await authApi.login(credentials);
+    setToken(data.access_token);
+    setUser(data.user);
+    setStoredUser(data.user);
+    return data;
   };
 
   const register = async (userData) => {
-    try {
-      const data = await authService.register(userData);
-      setUser(data.user);
-      setIsAuthenticated(true);
-      setCalmCoins(data.user.calm_coins || 0);
-      return data;
-    } catch (error) {
-      throw error;
-    }
+    const data = await authApi.register(userData);
+    setToken(data.access_token);
+    setUser(data.user);
+    setStoredUser(data.user);
+    return data;
   };
 
-  const logout = () => {
-    authService.logout();
-    setUser(null);
-    setIsAuthenticated(false);
-    setCalmCoins(0);
-  };
+  const logout = () => { clearToken(); setUser(null); };
 
-  const updateCalmCoins = async () => {
-    try {
-      const coins = await authService.getCalmCoins();
-      setCalmCoins(coins);
-    } catch (error) {
-      console.error('Failed to update calm coins:', error);
-    }
-  };
-
-  const value = {
-    user,
-    isAuthenticated,
-    loading,
-    calmCoins,
-    login,
-    register,
-    logout,
-    updateCalmCoins,
+  const updateCalmCoins = (amount) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, calm_coins: amount };
+      setStoredUser(updated);
+      return updated;
+    });
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{ user, loading, isAuthenticated: !!user && !!getToken(), login, register, logout, refreshUser, updateCalmCoins }}>
       {children}
     </AuthContext.Provider>
   );
-};
+}
+
+export function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  return ctx;
+}
