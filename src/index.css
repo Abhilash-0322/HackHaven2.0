@@ -1,0 +1,48 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color: #e5e0d7;
+  background: #0b0e13;
+  font-family: 'DM Sans', sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; background: #0b0e13; }
+button, input, textarea, select { font: inherit; }
+button { cursor: pointer; }
+
+@layer components {
+  .panel { @apply border border-line bg-panel/85; }
+  .eyebrow { @apply font-mono text-[10px] uppercase tracking-[0.22em] text-copper; }
+  .muted { @apply text-sm text-slate-400; }
+  .button-copper { @apply inline-flex items-center justify-center gap-2 bg-copper px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-ink transition hover:bg-[#e5ad75] disabled:cursor-not-allowed disabled:opacity-50; }
+  .button-ghost { @apply inline-flex items-center justify-center gap-2 border border-line px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-paper transition hover:border-copper hover:text-copper; }
+  .field { @apply w-full border border-line bg-[#0d1117] px-3 py-3 text-sm text-paper outline-none transition placeholder:text-slate-600 focus:border-copper; }
+  .tag { @apply border border-line px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-slate-400; }
+}
+
+::selection { background: #d69b62; color: #0b0e13; }
+::-webkit-scrollbar { width: 7px; }
+::-webkit-scrollbar-track { background: #0b0e13; }
+::-webkit-scrollbar-thumb { background: #28303a; }
+
+.grid-paper {
+  background-image: linear-gradient(rgba(36, 42, 52, .38) 1px, transparent 1px), linear-gradient(90deg, rgba(36, 42, 52, .38) 1px, transparent 1px);
+  background-size: 36px 36px;
+}
+.noise::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: .025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.8'/%3E%3C/svg%3E");
+  z-index: 50;
+}
+@keyframes pulse-soft { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+.pulse-soft { animation: pulse-soft 2.5s ease-in-out infinite; }
