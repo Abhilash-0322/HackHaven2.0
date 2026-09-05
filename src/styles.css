@@ -1,0 +1,52 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color: #edf2ff;
+  background: #070a12;
+  font-family: 'Space Grotesk', sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; background: #070a12; }
+button, input, textarea { font: inherit; }
+button { cursor: pointer; }
+
+@layer components {
+  .mono { font-family: 'DM Mono', monospace; }
+  .eyebrow { @apply mono text-[10px] uppercase tracking-[0.18em] text-slate-500; }
+  .panel { @apply rounded-2xl border border-line bg-panel; }
+  .panel-hover { @apply transition duration-200 hover:-translate-y-0.5 hover:border-slate-600 hover:shadow-glow; }
+  .btn-primary { @apply rounded-xl bg-lime px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-[#d8ff78] active:scale-[.98]; }
+  .btn-secondary { @apply rounded-xl border border-line bg-[#121827] px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:border-slate-500 hover:bg-[#172033]; }
+}
+
+.app-shell {
+  background:
+    radial-gradient(circle at 78% -10%, rgba(104, 83, 255, .13), transparent 29rem),
+    radial-gradient(circle at 15% 25%, rgba(85, 214, 170, .045), transparent 25rem),
+    #070a12;
+}
+.grid-fade {
+  background-image: linear-gradient(rgba(255,255,255,.026) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.026) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: linear-gradient(to bottom, black, transparent 75%);
+}
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { scrollbar-width: none; }
+.sparkline { stroke-dasharray: 300; animation: draw 1.5s ease-out both; }
+@keyframes draw { from { stroke-dashoffset: 300; } to { stroke-dashoffset: 0; } }
+.float-dot { animation: float 4s ease-in-out infinite; }
+@keyframes float { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-5px) } }
+@media (max-width: 900px) {
+  .desktop-sidebar { display: none; }
+  .mobile-nav { display: flex; }
+}
+@media (min-width: 901px) {
+  .mobile-nav { display: none; }
+}
