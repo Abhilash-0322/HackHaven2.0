@@ -1,0 +1,21 @@
+import { ArrowUpRight, BookOpen, Search, Sparkles } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { api } from '../lib/api'
+import { Card, Pill, SectionHeading } from '../components/ui'
+
+const starterBooks = [
+  { id: '1', title: 'The Book of Joy', author: 'Dalai Lama & Desmond Tutu', description: 'Lasting happiness in a changing world.', image_url: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&q=80' },
+  { id: '2', title: 'Wintering', author: 'Katherine May', description: 'The power of rest and retreat in difficult times.', image_url: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&q=80' },
+  { id: '3', title: 'Atomic Habits', author: 'James Clear', description: 'Tiny changes, remarkable results.', image_url: 'https://images.unsplash.com/photo-1495446815901-a7297e633e8d?w=400&q=80' },
+  { id: '4', title: 'The Comfort Book', author: 'Matt Haig', description: 'Notes, stories and other words for comfort.', image_url: 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=400&q=80' },
+]
+
+export default function Books() {
+  const [books, setBooks] = useState(starterBooks)
+  const [query, setQuery] = useState('')
+  const [mood, setMood] = useState('balanced')
+  const [loading, setLoading] = useState(false)
+  useEffect(() => { api.moodBooks().then((data) => { if (data.books?.length) { setBooks(data.books); setMood(data.mood || 'balanced') } }).catch(() => {}) }, [])
+  const search = async (event) => { event.preventDefault(); if (!query.trim()) return; setLoading(true); try { const data = await api.searchBooks(query); if (data.books?.length) setBooks(data.books) } catch {} finally { setLoading(false) } }
+  return <div className="space-y-7"><SectionHeading eyebrow="The quiet library" title="Words to return to." description="A small, considered collection for wherever your mind is today." action={<Pill tone="green"><Sparkles size={13} className="mr-1.5" /> Curated for {mood}</Pill>} /><div className="grid gap-5 xl:grid-cols-[1fr_290px]"><div><form onSubmit={search} className="mb-6 flex gap-3"><div className="relative flex-1"><Search size={16} className="absolute left-4 top-3.5 text-slate-600" /><input value={query} onChange={(event) => setQuery(event.target.value)} className="input pl-11" placeholder="Search by title, author, or feeling…" /></div><button className="button button-primary shrink-0" type="submit">{loading ? 'Searching…' : 'Search'}</button></form><div className="grid gap-4 sm:grid-cols-2">{books.map((book) => <Card key={book.id} className="group overflow-hidden p-0 transition hover:-translate-y-1 hover:border-white/20"><div className="flex h-48 items-center justify-center overflow-hidden bg-[#1a1830]"><img src={book.image_url || starterBooks[0].image_url} alt="" className="h-full w-full object-cover opacity-75 transition duration-500 group-hover:scale-105 group-hover:opacity-100" /></div><div className="p-5"><p className="mono text-[9px] uppercase tracking-[.16em] text-purple">For reflection</p><h3 className="mt-2 font-display text-lg font-semibold text-white">{book.title}</h3><p className="mt-1 text-xs text-slate-500">{book.author || 'Unknown author'}</p><p className="mt-4 line-clamp-2 text-xs leading-5 text-slate-400">{book.description || 'A thoughtful invitation to see things from a new angle.'}</p><div className="mt-5 flex items-center justify-between"><button className="text-xs font-semibold text-white hover:text-acid">Save to shelf</button><ArrowUpRight size={15} className="text-slate-600 group-hover:text-acid" /></div></div></Card>)}</div></div><Card className="h-fit p-6"><BookOpen size={20} className="text-acid" /><h2 className="mt-5 font-display text-xl text-white">Reading is a ritual.</h2><p className="mt-3 text-sm leading-6 text-slate-400">A few pages can create a little distance from the thought you’re stuck inside.</p><div className="mt-7 space-y-4 border-t border-white/[.07] pt-5"><div className="flex justify-between text-xs"><span className="text-slate-500">This month</span><span className="text-white">2h 18m</span></div><div className="h-1.5 overflow-hidden rounded-full bg-white/[.08]"><div className="h-full w-[42%] rounded-full bg-acid" /></div><p className="text-[11px] leading-5 text-slate-600">12 more minutes to reach your weekly reading intention.</p></div></Card></div></div>
+}

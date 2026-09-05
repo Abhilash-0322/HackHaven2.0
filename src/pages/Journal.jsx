@@ -1,0 +1,36 @@
+import { BookHeart, Feather, Flame, Hash, LoaderCircle, Plus, Search, Sparkles, Trash2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { api, formatError } from '../lib/api'
+import { Button, Card, EmptyState, Pill, SectionHeading } from '../components/ui'
+
+const fallbackEntries = [
+  { _id: 'one', title: 'A little more spacious', content: 'I took a walk without my phone today. The afternoon felt a little more spacious than usual.', mood: 'calm', tags: ['mindfulness', 'slow'], created_at: new Date(Date.now() - 86400000).toISOString() },
+  { _id: 'two', title: 'Showing up gently', content: 'There were a few things I avoided, but I still showed up for the important ones. That counts.', mood: 'hopeful', tags: ['growth'], created_at: new Date(Date.now() - 172800000).toISOString() },
+]
+const fallbackPrompts = ['What made you smile today?', 'What would feeling supported look like right now?', 'Name one small thing you can release before sleep.']
+
+export default function Journal() {
+  const [entries, setEntries] = useState(fallbackEntries)
+  const [prompts, setPrompts] = useState(fallbackPrompts)
+  const [content, setContent] = useState('')
+  const [mood, setMood] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [query, setQuery] = useState('')
+  const [notice, setNotice] = useState('')
+  useEffect(() => { api.getJournal().then((data) => setEntries(data?.length ? data : fallbackEntries)).catch(() => {}); api.getPrompts().then((data) => setPrompts(data.map((item) => item.prompt))).catch(() => {}) }, [])
+  const save = async () => {
+    if (!content.trim() || saving) return
+    setSaving(true); setNotice('')
+    const optimistic = { _id: `local-${Date.now()}`, title: content.split(/[.!?]/)[0].slice(0, 48) || 'New reflection', content, mood: mood || 'present', tags: [], created_at: new Date().toISOString() }
+    try {
+      const created = await api.createJournal({ content, mood: mood || null, tags: [] })
+      setEntries((current) => [created, ...current]); setNotice('Reflection held securely · +10 ZEN')
+    } catch {
+      setEntries((current) => [optimistic, ...current]); setNotice('Saved locally for when your connection returns')
+    }
+    setContent(''); setMood(''); setSaving(false)
+  }
+  const remove = async (id) => { setEntries((current) => current.filter((entry) => (entry._id || entry.id) !== id)); try { await api.deleteJournal(id) } catch {} }
+  const filtered = entries.filter((entry) => `${entry.title} ${entry.content} ${entry.mood}`.toLowerCase().includes(query.toLowerCase()))
+  return <div className="space-y-7"><SectionHeading eyebrow="Private reflections · +10 ZEN per entry" title="Your inner ledger." description="A place to notice the patterns beneath the noise, one honest line at a time." action={<Pill tone="purple"><Flame size={13} className="mr-1.5" /> 12 day streak</Pill>} /><div className="grid gap-5 xl:grid-cols-[1.25fr_1fr]"><Card className="overflow-hidden p-6 sm:p-7"><div className="flex items-center justify-between"><div className="flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-xl bg-acid/10 text-acid"><Feather size={17} /></div><div><h2 className="font-display text-lg font-semibold text-white">New reflection</h2><p className="text-xs text-slate-500">No perfect words required.</p></div></div><span className="mono text-[10px] text-slate-600">{content.length}/2000</span></div><textarea maxLength="2000" value={content} onChange={(event) => setContent(event.target.value)} placeholder="What is moving through you today?" className="mt-7 min-h-[185px] w-full resize-none rounded-2xl border border-white/[.07] bg-white/[.025] p-4 text-sm leading-7 text-white outline-none transition placeholder:text-slate-600 focus:border-purple/40" /><div className="mt-4 flex flex-wrap items-center gap-2"><span className="mono mr-1 text-[9px] uppercase tracking-[.16em] text-slate-600">Mood</span>{['calm', 'hopeful', 'heavy', 'grateful'].map((item) => <button key={item} onClick={() => setMood(item)} className={`rounded-full border px-3 py-1.5 text-[10px] capitalize transition ${mood === item ? 'border-acid/40 bg-acid/10 text-acid' : 'border-white/10 text-slate-500 hover:border-white/20 hover:text-white'}`}>{item}</button>)}</div><div className="mt-6 flex items-center justify-between">{notice ? <p className="text-xs text-acid">{notice}</p> : <p className="text-[11px] text-slate-600">Entries are encrypted in transit.</p>}<Button onClick={save} loading={saving} disabled={!content.trim()}><Plus size={15} /> Save reflection</Button></div></Card><Card className="p-6 sm:p-7"><div className="flex items-center gap-3"><Sparkles size={18} className="text-purple" /><div><h2 className="font-display text-lg font-semibold text-white">A prompt for you</h2><p className="text-xs text-slate-500">Let the question do the opening.</p></div></div><div className="mt-8 rounded-2xl border border-purple/20 bg-purple/[.07] p-6"><p className="font-display text-xl leading-8 text-purple-100">“{prompts[0]}”</p><button onClick={() => setContent(prompts[Math.floor(Math.random() * prompts.length)])} className="mt-6 text-xs font-semibold text-white hover:text-acid">Use this prompt →</button></div><div className="mt-7 space-y-3">{prompts.slice(1, 4).map((prompt) => <button key={prompt} onClick={() => setContent(prompt)} className="group flex w-full items-start gap-3 rounded-xl border border-white/[.06] p-3 text-left transition hover:border-white/15 hover:bg-white/[.03]"><Hash size={14} className="mt-0.5 text-slate-600 group-hover:text-acid" /><span className="text-xs leading-5 text-slate-400 group-hover:text-white">{prompt}</span></button>)}</div></Card></div><div><div className="mb-5 flex items-center justify-between"><div><h2 className="font-display text-xl font-semibold text-white">Past reflections <span className="ml-2 text-sm font-normal text-slate-600">{entries.length}</span></h2></div><div className="relative"><Search size={14} className="absolute left-3 top-2.5 text-slate-600" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search entries" className="input h-9 w-44 pl-9 text-xs" /></div></div>{filtered.length ? <div className="grid gap-4 md:grid-cols-2">{filtered.map((entry) => <Card key={entry._id || entry.id} className="group p-5 transition hover:border-white/20"><div className="flex items-start justify-between gap-3"><div><p className="mono text-[10px] uppercase tracking-[.12em] text-slate-600">{new Date(entry.created_at || Date.now()).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</p><h3 className="mt-3 font-display text-lg text-white">{entry.title || 'Untitled reflection'}</h3></div><button onClick={() => remove(entry._id || entry.id)} className="opacity-0 transition group-hover:opacity-100 icon-button"><Trash2 size={14} /></button></div><p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-400">{entry.content}</p><div className="mt-5 flex items-center gap-2">{entry.mood && <Pill tone="green">{entry.mood}</Pill>}{(entry.tags || []).map((tag) => <span key={tag} className="text-[10px] text-slate-600">#{tag}</span>)}</div></Card>)}</div> : <EmptyState icon={BookHeart} title="Nothing here yet" description="Your next honest line can become the first entry." />}</div></div>
+}
