@@ -1,0 +1,28 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap");
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color: #edf3e9; background: #0a0d0c; font-family: "DM Sans", sans-serif; font-synthesis: none; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; background: #0a0d0c; }
+button, input, textarea, select { font: inherit; }
+button { cursor: pointer; }
+::selection { color: #0a0d0c; background: #c7eb92; }
+
+@layer components {
+  .glass { @apply border border-white/[0.08] bg-white/[0.035] backdrop-blur-xl; }
+  .eyebrow { @apply text-[10px] font-bold uppercase tracking-[0.22em] text-[#91a289]; }
+  .btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-full bg-[#c7eb92] px-5 py-3 text-sm font-bold text-[#182016] transition hover:bg-[#d9f7af] disabled:cursor-not-allowed disabled:opacity-50; }
+  .btn-ghost { @apply inline-flex items-center justify-center gap-2 rounded-full border border-white/[0.12] px-5 py-3 text-sm font-semibold text-[#e2ebdc] transition hover:border-[#c7eb92]/50 hover:bg-white/[0.05]; }
+  .field { @apply w-full rounded-2xl border border-white/[0.12] bg-white/[0.04] px-4 py-3 text-sm text-[#edf3e9] outline-none transition placeholder:text-[#667264] focus:border-[#c7eb92]/70 focus:bg-white/[0.06]; }
+}
+
+.grain::before { position: fixed; inset: 0; z-index: 50; pointer-events: none; opacity: .035; content: ""; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.8'/%3E%3C/svg%3E"); }
+.orb { position: absolute; border-radius: 999px; filter: blur(1px); background: radial-gradient(circle at 35% 30%, rgba(208,239,171,.85), rgba(110,144,92,.18) 38%, transparent 71%); }
+.ring-chart { background: conic-gradient(#c7eb92 0deg 313deg, rgba(255,255,255,.08) 313deg 360deg); border-radius: 50%; padding: 9px; }
+.ring-chart > div { display: flex; height: 100%; width: 100%; align-items: center; justify-content: center; border-radius: 50%; background: #111615; }
+.scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
+.scrollbar::-webkit-scrollbar-thumb { border-radius: 10px; background: rgba(199,235,146,.25); }
+.waveform { background: repeating-linear-gradient(90deg, transparent 0 5px, rgba(199,235,146,.65) 5px 7px, transparent 7px 11px); }
+@media (max-width: 767px) { .desktop-only { display: none; } }
