@@ -1,0 +1,56 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color: #161616;
+  background: #f7f7f2;
+  font-family: 'Inter', sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; }
+button, input, textarea, select { font: inherit; }
+button { cursor: pointer; }
+
+@layer components {
+  .mono { font-family: 'DM Mono', monospace; }
+  .display { font-family: 'Space Grotesk', sans-serif; }
+  .eyebrow { @apply mono text-[10px] font-medium uppercase tracking-[0.2em]; }
+  .card { @apply rounded-3xl border border-ink/10 bg-white shadow-soft; }
+  .pill { @apply rounded-full border border-ink/15 px-3 py-1.5 text-xs font-semibold; }
+  .btn-dark { @apply inline-flex items-center justify-center gap-2 rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-black; }
+  .btn-lime { @apply inline-flex items-center justify-center gap-2 rounded-full bg-lime px-5 py-3 text-sm font-semibold text-ink transition hover:-translate-y-0.5 hover:shadow-sticker; }
+  .btn-ghost { @apply inline-flex items-center justify-center gap-2 rounded-full border border-ink/15 px-4 py-2.5 text-sm font-semibold transition hover:border-ink hover:bg-white; }
+  .field { @apply w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-ink/35 focus:border-ink focus:ring-2 focus:ring-lime; }
+  .nav-item { @apply flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-semibold text-ink/55 transition hover:bg-white hover:text-ink; }
+  .nav-item.active { @apply bg-ink text-white shadow-sticker; }
+}
+
+.grain {
+  background-image: radial-gradient(rgba(22,22,22,.1) .6px, transparent .6px);
+  background-size: 5px 5px;
+}
+
+.text-balance { text-wrap: balance; }
+.scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
+.scrollbar::-webkit-scrollbar-thumb { background: #d4d4cb; border-radius: 10px; }
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-8px) rotate(2deg); }
+}
+.float { animation: float 5s ease-in-out infinite; }
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: .65; transform: scale(.95); }
+  50% { opacity: 1; transform: scale(1); }
+}
+.pulse-soft { animation: pulse-soft 1.5s ease-in-out infinite; }
+
+@media (max-width: 900px) {
+  .desktop-nav { display: none; }
+}
