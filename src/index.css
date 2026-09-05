@@ -1,0 +1,30 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: dark; font-family: 'DM Sans', sans-serif; background: #060809; color: #e6efed; }
+* { box-sizing: border-box; }
+html { background: #060809; }
+body { margin: 0; min-width: 320px; background: #060809; }
+button, input, textarea, select { font: inherit; }
+button { cursor: pointer; }
+::selection { color: #060809; background: #baff3f; }
+
+.terminal-bg { background-image: linear-gradient(rgba(186,255,63,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(186,255,63,.035) 1px, transparent 1px); background-size: 48px 48px; }
+.scanlines { position: relative; }
+.scanlines::after { content: ''; pointer-events: none; position: fixed; inset: 0; z-index: 40; opacity: .025; background: repeating-linear-gradient(0deg, transparent, transparent 2px, #fff 3px); }
+.panel { border: 1px solid #1b2525; background: rgba(11,15,16,.86); }
+.panel-hover { transition: border-color .2s ease, background .2s ease, transform .2s ease; }
+.panel-hover:hover { border-color: rgba(186,255,63,.35); background: rgba(15,22,20,.96); transform: translateY(-1px); }
+.text-glow { text-shadow: 0 0 18px rgba(186,255,63,.4); }
+.signal-glow { text-shadow: 0 0 18px rgba(84,226,255,.38); }
+.dot-grid { background-image: radial-gradient(rgba(186,255,63,.15) 1px, transparent 1px); background-size: 18px 18px; }
+.scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
+.scrollbar::-webkit-scrollbar-thumb { background: #263532; border-radius: 99px; }
+@keyframes blink { 50% { opacity: .25; } }
+@keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(186,255,63,.45); } 50% { box-shadow: 0 0 0 6px rgba(186,255,63,0); } }
+.blink { animation: blink 1.4s step-end infinite; }
+.pulse-dot { animation: pulse 2s infinite; }
+@keyframes grow { from { transform: scaleY(.2); } to { transform: scaleY(1); } }
+.bar { transform-origin: bottom; animation: grow 1.4s ease-in-out infinite alternate; }
