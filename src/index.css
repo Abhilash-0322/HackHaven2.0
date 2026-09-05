@@ -1,0 +1,17 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: dark; font-family: 'DM Sans', sans-serif; background: #080d19; color: #eef3f7; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; background: #080d19; }
+button, input, textarea { font: inherit; }
+button { cursor: pointer; }
+.grid-bg { background-image: linear-gradient(rgba(124,229,211,.045) 1px, transparent 1px), linear-gradient(90deg, rgba(124,229,211,.045) 1px, transparent 1px); background-size: 48px 48px; }
+.noise { position: relative; }
+.noise:before { content: ''; position: absolute; inset: 0; opacity: .05; pointer-events: none; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.8'/%3E%3C/svg%3E"); }
+.glass { background: rgba(16, 26, 41, .72); border: 1px solid rgba(132, 146, 167, .18); backdrop-filter: blur(16px); }
+.display { font-family: 'Space Grotesk', sans-serif; }
+.orb { filter: blur(1px); box-shadow: 0 0 90px rgba(199,243,107,.24), inset 0 0 30px rgba(255,255,255,.25); }
+::selection { color: #080d19; background: #c7f36b; }
