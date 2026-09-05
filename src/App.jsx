@@ -382,8 +382,40 @@ function Therapists() {
   return <div className="content-scroll"><PageTitle eyebrow="room / care team" title="Support that meets you there." description="Licensed professionals for the days when a little more support would help. Browse without committing to anything." action={<select value={specialization} onChange={(event) => setSpecialization(event.target.value)} style={{ padding: '9px 10px', border: '1px solid #303542', borderRadius: 8, color: '#cdd2dc', background: '#181b21', fontSize: 11 }}><option value="">all specialties</option><option value="anxiety">anxiety</option><option value="stress">stress</option><option value="mindfulness">mindfulness</option><option value="grief">grief</option></select>} /><div className="surface-card" style={{ padding: 15, marginBottom: 15, display: 'flex', gap: 10, color: '#9ba3b6', fontSize: 11 }}><ShieldCheck size={16} color="#6ee7b7" /> Every profile is reviewed. You choose if and when you reach out.</div><div className="therapist-grid">{filtered.map((therapist) => <TherapistCard key={therapist._id || therapist.id} therapist={therapist} />)}</div></div>
 }
 function TherapistCard({ therapist }) {
+  const { user } = useAuth()
+  const [booking, setBooking] = useState(false)
+  const [bookingStatus, setBookingStatus] = useState('')
   const initials = (therapist.name || 'Care').split(' ').map((part) => part[0]).slice(0, 2).join('')
-  return <article className="therapist-card"><div className="therapist-head"><span className="avatar orange">{initials}</span><div style={{ flex: 1 }}><h3>{therapist.name}</h3><p>{(therapist.specializations || []).join(' · ')}</p></div><button className="ghost-btn" style={{ minHeight: 28, padding: 7 }}><CircleHelp size={13} /></button></div><p style={{ marginTop: 15 }}>{therapist.bio || 'A thoughtful, person-centered approach to your wellbeing.'}</p><div className="rating">★ {therapist.rating || '4.8'} <span className="rate">${therapist.hourly_rate || 50} / session</span></div><button className="primary-btn" style={{ width: '100%', marginTop: 15 }} onClick={() => alert('Sign in to book a session with this therapist.')}>view availability <ArrowRight size={13} /></button></article>
+  const bookSession = async () => {
+    if (!user) return
+    setBooking(true)
+    setBookingStatus('')
+    try {
+      const detail = await apiFetch(`/therapists/${therapist._id || therapist.id}`)
+      const slot = detail.available_slots?.[0]
+      if (!slot) throw new Error('No upcoming slots are available yet.')
+      const start = new Date(slot.start_time)
+      const end = new Date(slot.end_time)
+      await apiFetch('/therapists/appointments', {
+        method: 'POST',
+        body: JSON.stringify({
+          user_id: user.id,
+          therapist_id: therapist._id || therapist.id,
+          date: start.toISOString(),
+          start_time: start.toISOString(),
+          end_time: end.toISOString(),
+          session_type: 'video',
+          notes: 'Booked from the ZenHeaven care team.',
+        }),
+      }, localStorage.getItem('zenheaven_token') || '')
+      setBookingStatus('Session requested — we’ll see you there.')
+    } catch (error) {
+      setBookingStatus(error.message || 'Availability is not reachable right now.')
+    } finally {
+      setBooking(false)
+    }
+  }
+  return <article className="therapist-card"><div className="therapist-head"><span className="avatar orange">{initials}</span><div style={{ flex: 1 }}><h3>{therapist.name}</h3><p>{(therapist.specializations || []).join(' · ')}</p></div><button className="ghost-btn" style={{ minHeight: 28, padding: 7 }}><CircleHelp size={13} /></button></div><p style={{ marginTop: 15 }}>{therapist.bio || 'A thoughtful, person-centered approach to your wellbeing.'}</p><div className="rating">★ {therapist.rating || '4.8'} <span className="rate">${therapist.hourly_rate || 50} / session</span></div>{bookingStatus && <div className={bookingStatus.startsWith('Session') ? 'success-message' : 'error-message'} style={{ marginTop: 13 }}>{bookingStatus}</div>}<button className="primary-btn" style={{ width: '100%', marginTop: 15 }} onClick={bookSession} disabled={booking}>{booking ? 'checking availability…' : 'request a session'} <ArrowRight size={13} /></button></article>
 }
 
 function Coins() {
