@@ -1,72 +1,43 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Landing from './pages/Landing';
-import MusicRecommend from './pages/MusicRecommend';
-import Layout from './components/Layout';
-import './App.css';
-import MentalHealthChat from './pages/MentalHealthChatThreaded';
-import JournalPage from './pages/Journal';
-import TherapistAppointments from './pages/TherapistAppointments';
-// import BookRecommender from './pages/BookRecommender';
-import CoinsPage from './pages/CoinsPage';
-// import BookRecommend from './pages/BookRecommend';
-import BooksPage from './pages/BookPage';
-import Login from './components/Login';
-import Register from './components/Register';
-import ProtectedRoute from './components/ProtectedRoute';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ErrorBoundary from './components/ErrorBoundary';
-import { AuthProvider } from './contexts/AuthContext';
+import ProtectedRoute from './components/auth/ProtectedRoute';
+import Home from './pages/Home';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Chat from './pages/Chat';
+import Journal from './pages/Journal';
+import Books from './pages/Books';
+import MusicPage from './pages/Music';
+import Therapists from './pages/Therapists';
+import CoinsPage from './pages/Coins';
 
-function App() {
-  
-  return (
-    <AuthProvider>
-      <Router>
-        <Routes>
-          {/* Public routes */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          
-          {/* Protected routes */}
-          <Route path="/" element={<Layout />}>
-            <Route index element={<Landing />} />
-            <Route path='/therapists' element={
-              <ProtectedRoute>
-                <TherapistAppointments/>
-              </ProtectedRoute>
-            }/>
-            <Route path="/musicrecommend" element={
-              <ProtectedRoute>
-                <MusicRecommend />
-              </ProtectedRoute>
-            } />
-            <Route path="/chat" element={
-              <ProtectedRoute>
-                <ErrorBoundary>
-                  <MentalHealthChat/>
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }/>
-            <Route path='/journal' element={
-              <ProtectedRoute>
-                <JournalPage/>
-              </ProtectedRoute>
-            }/>
-            <Route path="/books" element={
-              <ProtectedRoute>
-                <BooksPage/>
-              </ProtectedRoute>
-            } />
-            <Route path="/coins" element={
-              <ProtectedRoute>
-                <CoinsPage />
-              </ProtectedRoute>
-            } />
-            <Route path="*" element={<div className="h-screen flex items-center justify-center">Page not found</div>} />
-          </Route>
-        </Routes>
-      </Router>
-    </AuthProvider>
-  );
+function PublicOnly({ children }) {
+  const { isAuthenticated, loading } = useAuth();
+  if (loading) return null;
+  if (isAuthenticated) return <Navigate to="/" replace />;
+  return children;
 }
 
-export default App;
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
+            <Route path="/register" element={<PublicOnly><Register /></PublicOnly>} />
+            <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+            <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
+            <Route path="/journal" element={<ProtectedRoute><Journal /></ProtectedRoute>} />
+            <Route path="/books" element={<ProtectedRoute><Books /></ProtectedRoute>} />
+            <Route path="/music" element={<ProtectedRoute><MusicPage /></ProtectedRoute>} />
+            <Route path="/therapists" element={<ProtectedRoute><Therapists /></ProtectedRoute>} />
+            <Route path="/coins" element={<ProtectedRoute><CoinsPage /></ProtectedRoute>} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </ErrorBoundary>
+  );
+}
