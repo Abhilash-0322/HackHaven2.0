@@ -1,0 +1,21 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: dark; font-family: 'DM Sans', sans-serif; background: #071018; color: #e6f7f4; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; background: #071018; }
+button, input, textarea, select { font: inherit; }
+button { cursor: pointer; }
+::selection { color: #071018; background: #74f7de; }
+.noise { position: relative; }
+.noise::after { content: ''; pointer-events: none; position: fixed; inset: 0; opacity: .025; z-index: 50; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.45'/%3E%3C/svg%3E"); }
+.grid-bg { background-image: linear-gradient(rgba(116,247,222,.055) 1px, transparent 1px), linear-gradient(90deg, rgba(116,247,222,.055) 1px, transparent 1px); background-size: 64px 64px; mask-image: linear-gradient(to bottom, black, transparent 90%); }
+.glass { background: linear-gradient(145deg, rgba(21,43,50,.72), rgba(10,24,32,.72)); border: 1px solid rgba(130, 209, 201, .16); backdrop-filter: blur(18px); }
+.glow-mint { box-shadow: 0 0 0 1px rgba(116,247,222,.12), 0 0 40px rgba(116,247,222,.08); }
+.text-gradient { background: linear-gradient(110deg, #e9fffa 10%, #74f7de 58%, #a98cff 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
+.scrollbar::-webkit-scrollbar-thumb { background: rgba(116,247,222,.24); border-radius: 99px; }
+@keyframes drift { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(18px,-14px,0) scale(1.04); } }
+.orb { animation: drift 9s ease-in-out infinite; }
